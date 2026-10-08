@@ -29,6 +29,9 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.os.Build;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -53,6 +56,11 @@ public class MainActivity extends Activity implements IReporter {
     private LinearLayout layoutTerminal;
     private EditText editCommand;
     private Button btnSend;
+    private TextView tvRootBadge;
+    private TextView tvDeviceInfo;
+    private TextView tvSelinuxStatus;
+    private TextView tvKernelInfo;
+    private TextView btnCopyLog;
     private Socket mTerminalSocket;
     private OutputStream mTerminalOut;
     private Context mDeCtx;
@@ -87,12 +95,23 @@ public class MainActivity extends Activity implements IReporter {
         layoutTerminal  = findViewById(R.id.layoutTerminal);
         editCommand     = findViewById(R.id.editCommand);
         btnSend         = findViewById(R.id.btnSend);
+        tvRootBadge     = findViewById(R.id.tvRootBadge);
+        tvDeviceInfo    = findViewById(R.id.tvDeviceInfo);
+        tvSelinuxStatus = findViewById(R.id.tvSelinuxStatus);
+        tvKernelInfo    = findViewById(R.id.tvKernelInfo);
+        btnCopyLog      = findViewById(R.id.btnCopyLog);
 
         btnSend.setOnClickListener(v -> sendTerminalCommand());
         editCommand.setOnEditorActionListener((v, actionId, event) -> {
             sendTerminalCommand();
             return true;
         });
+
+        if (btnCopyLog != null) {
+            btnCopyLog.setOnClickListener(v -> copyLogToClipboard());
+        }
+
+        refreshDashboard();
 
         PackageManager pm = getPackageManager();
         List<SuManagerEntry> entries = new ArrayList<>();
@@ -184,11 +203,58 @@ public class MainActivity extends Activity implements IReporter {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        } else if (id == R.id.action_copy_log) {
+            copyLogToClipboard();
+            return true;
+        } else if (id == R.id.action_clear_log) {
+            outputView.setText("");
+            Toast.makeText(this, "Log dibersihkan", Toast.LENGTH_SHORT).show();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void copyLogToClipboard() {
+        String logText = outputView != null ? outputView.getText().toString() : "";
+        if (logText.isEmpty()) {
+            Toast.makeText(this, "Log masih kosong", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (cm != null) {
+            ClipData clip = ClipData.newPlainText("FragSimulator_Log", logText);
+            cm.setPrimaryClip(clip);
+            Toast.makeText(this, "Log berhasil disalin ke clipboard!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void refreshDashboard() {
+        if (tvDeviceInfo != null) {
+            tvDeviceInfo.setText("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
+        }
+        if (tvKernelInfo != null) {
+            String osRelease = System.getProperty("os.version");
+            tvKernelInfo.setText("Kernel: " + (osRelease != null ? osRelease : "Unknown"));
+        }
+
+        boolean isHooked = new File("/dev/df").exists();
+        if (tvRootBadge != null) {
+            if (isHooked) {
+                tvRootBadge.setText("● Root Active");
+                tvRootBadge.setTextColor(0xFF81C784); // Hijau
+            } else {
+                tvRootBadge.setText("● Unrooted");
+                tvRootBadge.setTextColor(0xFFE57373); // Merah
+            }
+        }
+
+        if (tvSelinuxStatus != null) {
+            tvSelinuxStatus.setText(isHooked ? "SELinux: Permissive" : "SELinux: Enforcing");
+        }
     }
 
     /**
@@ -232,17 +298,20 @@ public class MainActivity extends Activity implements IReporter {
             Log.e(TAG, "exploit exception", e);
             report("\nexception: " + e + "\n");
         } finally {
-            mMain.post(this::updateRunButton);
+            mMain.post(() -> {
+                updateRunButton();
+                refreshDashboard();
+            });
         }
     }
 
     private void connectTerminalSession() {
         layoutTerminal.setVisibility(View.VISIBLE);
         report("\n[Terminal In-App Root Aktif. Ketik perintah di bawah]\n");
-        mExec.execute(() -> {
+        new Thread(() -> {
             try {
-                // Beri jeda 500ms agar daemon root socket siap listen
-                Thread.sleep(500);
+                // Beri jeda 800ms agar daemon root socket siap listen
+                Thread.sleep(800);
                 mTerminalSocket = new Socket("127.0.0.1", 1337);
                 mTerminalOut = mTerminalSocket.getOutputStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(mTerminalSocket.getInputStream()));
@@ -256,7 +325,7 @@ public class MainActivity extends Activity implements IReporter {
             } catch (Exception e) {
                 report("\n[Terminal session ended: " + e.getMessage() + "]\n");
             }
-        });
+        }, "Terminal-Reader").start();
     }
 
     private void sendTerminalCommand() {

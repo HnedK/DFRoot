@@ -4,29 +4,113 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:padding="16dp"
     android:fitsSystemWindows="true">
 
-    <Spinner
-        android:id="@+id/spinnerSuManager"
+    <!-- Card Status Dashboard -->
+    <LinearLayout
+        android:id="@+id/cardStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="@null"
-        android:overlapAnchor="false" />
+        android:orientation="vertical"
+        android:background="@drawable/bg_status_card"
+        android:padding="14dp"
+        android:layout_marginBottom="12dp">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="System Status"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <TextView
+                android:id="@+id/tvRootBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● Unrooted"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                android:textColor="#E57373" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvDeviceInfo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Device: Loading..."
+                android:textSize="11sp"
+                android:textColor="?android:attr/textColorSecondary" />
+
+            <TextView
+                android:id="@+id/tvSelinuxStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SELinux: Loading..."
+                android:textSize="11sp"
+                android:textColor="?android:attr/textColorSecondary" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvKernelInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Kernel: Loading..."
+            android:textSize="11sp"
+            android:textColor="?android:attr/textColorSecondary" />
+
+    </LinearLayout>
+
+    <!-- Pilihan SU Manager (Spinner) -->
+    <LinearLayout
+        android:id="@+id/containerSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_input_box"
+        android:padding="4dp"
+        android:layout_marginBottom="10dp">
+
+        <Spinner
+            android:id="@+id/spinnerSuManager"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:overlapAnchor="false" />
+
+    </LinearLayout>
+
+    <!-- Mode Selector -->
     <RadioGroup
         android:id="@+id/radioGroupMode"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
+        android:layout_marginBottom="12dp">
 
         <RadioButton
             android:id="@+id/radioKernelSU"
@@ -34,6 +118,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="KernelSU"
+            android:textSize="13sp"
             android:checked="true" />
 
         <RadioButton
@@ -41,34 +126,60 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Shell" />
+            android:text="Shell"
+            android:textSize="13sp" />
 
     </RadioGroup>
 
+    <!-- Tombol Launch Root -->
+    <Button
+        android:id="@+id/btnRun"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Launch Root"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Header Box Log & Action -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center"
-        android:weightSum="5">
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
 
-        <Button
-            android:id="@+id/btnRun"
+        <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="4"
-            android:text="Launch Root" />
+            android:layout_weight="1"
+            android:text="Live Output"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <TextView
+            android:id="@+id/btnCopyLog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="[Copy Log]"
+            android:textSize="12sp"
+            android:textColor="?android:attr/colorPrimary"
+            android:padding="4dp"
+            android:clickable="true"
+            android:focusable="true" />
 
     </LinearLayout>
 
+    <!-- Log Console Box -->
     <ScrollView
         android:id="@+id/outputScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp">
+        android:background="@drawable/bg_terminal_box"
+        android:padding="12dp"
+        android:layout_marginBottom="10dp">
 
         <TextView
             android:id="@+id/outputView"
@@ -77,16 +188,22 @@
             android:fontFamily="monospace"
             android:textIsSelectable="true"
             android:textSize="11sp"
-            android:textColor="?android:attr/textColorPrimary" />
+            android:textColor="#80E5A3" />
 
     </ScrollView>
 
+    <!-- In-App Terminal Input -->
     <LinearLayout
         android:id="@+id/layoutTerminal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="8dp"
+        android:background="@drawable/bg_input_box"
+        android:paddingStart="12dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:gravity="center_vertical"
         android:visibility="gone">
 
         <EditText
@@ -94,16 +211,18 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Ketik perintah root (mis: id, ls /data)..."
+            android:hint="root # ketik perintah..."
             android:fontFamily="monospace"
             android:textSize="13sp"
+            android:background="@null"
             android:imeOptions="actionSend"
             android:inputType="text" />
 
         <Button
             android:id="@+id/btnSend"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
+            android:textSize="12sp"
             android:text="Kirim" />
 
     </LinearLayout>

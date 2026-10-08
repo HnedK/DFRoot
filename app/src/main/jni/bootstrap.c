@@ -238,7 +238,7 @@ static void run_root_shell_daemon(void)
             setenv("USER", "root", 1);
             setenv("HOME", "/data/local/tmp", 1);
 
-            char *const sh_argv[] = { "/system/bin/sh", NULL };
+            char *const sh_argv[] = { "/system/bin/sh", "-s", NULL };
             execv("/system/bin/sh", sh_argv);
             _exit(127);
         }
@@ -267,9 +267,10 @@ static int launch_shell_mode(void)
     }
 
     /* Bind mount /data/local/tmp/su directly to system PATH locations if possible */
-    /* Many tools check /system/bin/su or /system/xbin/su */
     mount("/data/local/tmp/su", "/system/bin/su", NULL, MS_BIND, NULL);
     mount("/data/local/tmp/su", "/system/xbin/su", NULL, MS_BIND, NULL);
+    mount("/data/local/tmp/su", "/bin/su", NULL, MS_BIND, NULL);
+    mount("/data/local/tmp/su", "/apex/com.android.runtime/bin/su", NULL, MS_BIND, NULL);
 
     /* Auto-start Shizuku if shizuku_starter exists in /data/local/tmp */
     /* Run as user 'shell' (UID 2000) so Samsung Defex does not SIGKILL (137) it */

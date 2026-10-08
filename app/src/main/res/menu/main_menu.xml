@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/action_copy_log"
+        android:title="Copy Log"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_clear_log"
+        android:title="Clear Log"
+        android:showAsAction="never" />
+    <item
         android:id="@+id/action_settings"
         android:icon="@drawable/ic_settings"
         android:title="Settings"
