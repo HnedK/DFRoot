@@ -196,7 +196,7 @@ public class MainActivity extends Activity implements IReporter {
             int rc = ExploitRunner.run(mDeCtx, this, mode);
             final String msg;
             if (ExploitRunner.RUN_MODE_SHELL.equals(mode)) {
-                msg = rc == 0 ? "Shell Mode: SUCCESS — run 'adb shell' for root access"
+                msg = rc == 0 ? "Shell Mode: SUCCESS — adb shell lalu ketik /data/local/tmp/sh_root"
                              : "Shell Mode: Error (rc=" + rc + ") — check logcat & dmesg";
             } else {
                 msg = rc == 0 ? "KernelSU: SUCCESS"

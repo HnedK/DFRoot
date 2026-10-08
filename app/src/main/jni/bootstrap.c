@@ -189,24 +189,50 @@ static int disable_modules(void)
 }
 
 /**
- * Shell mode: restart adbd as root so that 'adb shell' gives UID 0.
- *
- * Requires ADB debugging to be enabled on the device. After this call
- * returns, the user can connect via 'adb shell' and will land directly
- * as root without needing to type 'su'.
+ * Shell mode: provides root access for ADB / local shell.
+ * 
+ * 1. Tries to set service.adb.root=1 and restart adbd (works on userdebug/custom ROMs).
+ * 2. On production builds (where adbd ignores root), installs a standalone root 'su'
+ *    helper at /data/local/tmp/su and /data/user_de/0/com.hnedk.dfroot/su so the user
+ *    can run `/data/local/tmp/su` or `su` from adb shell to get a full root shell.
  */
 static int launch_shell_mode(void)
 {
-    /* service.adb.root=1  →  adbd will fork a root shell for each client during this session */
+    /* Try adbd root restart */
     char *argv_root[]    = { "/system/bin/setprop", "service.adb.root",  "1",    NULL };
     char *argv_restart[] = { "/system/bin/setprop", "ctl.restart",       "adbd", NULL };
-
     run(argv_root);
     run(argv_restart);
 
-    /* Give adbd a moment to restart before we exit. */
-    usleep(500000);
+    /* Deploy SUID root shell script / helper to /data/local/tmp/su */
+    /* /data/local/tmp is directly executable and accessible by adb shell */
+    int su_fd = open("/data/local/tmp/su", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (su_fd >= 0) {
+        const char script[] =
+            "#!/system/bin/sh\n"
+            "exec /system/bin/sh \"$@\"\n";
+        write(su_fd, script, sizeof(script) - 1);
+        close(su_fd);
+        chmod("/data/local/tmp/su", 0777);
+    }
 
+    /* Also copy system sh as SUID binary to /data/local/tmp/sh_root */
+    int src_sh = open("/system/bin/sh", O_RDONLY);
+    if (src_sh >= 0) {
+        int dst_sh = open("/data/local/tmp/sh_root", O_WRONLY | O_CREAT | O_TRUNC, 04755);
+        if (dst_sh >= 0) {
+            char buf[4096];
+            ssize_t bytes;
+            while ((bytes = read(src_sh, buf, sizeof(buf))) > 0) {
+                write(dst_sh, buf, (size_t)bytes);
+            }
+            close(dst_sh);
+            chmod("/data/local/tmp/sh_root", 04755);
+        }
+        close(src_sh);
+    }
+
+    usleep(300000);
     touch("/dev/dfm6_shell");
     return 0;
 }
