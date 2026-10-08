@@ -197,13 +197,11 @@ static int disable_modules(void)
  */
 static int launch_shell_mode(void)
 {
-    /* service.adb.root=1  →  adbd will fork a root shell for each client */
+    /* service.adb.root=1  →  adbd will fork a root shell for each client during this session */
     char *argv_root[]    = { "/system/bin/setprop", "service.adb.root",  "1",    NULL };
-    char *argv_persist[] = { "/system/bin/setprop", "persist.adb.root",  "1",    NULL };
     char *argv_restart[] = { "/system/bin/setprop", "ctl.restart",       "adbd", NULL };
 
     run(argv_root);
-    run(argv_persist);
     run(argv_restart);
 
     /* Give adbd a moment to restart before we exit. */
