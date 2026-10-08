@@ -1,4 +1,4 @@
-package df.root;
+package com.hnedk.dfroot;
 
 import android.app.Activity;
 import android.content.Context;
@@ -20,6 +20,8 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -39,6 +41,9 @@ public class MainActivity extends Activity implements IReporter {
     private ScrollView outputScroll;
     private TextView outputView;
     private Spinner spinnerSuManager;
+    private RadioGroup radioGroupMode;
+    private RadioButton radioKernelSU;
+    private RadioButton radioShell;
     private Context mDeCtx;
     private final Handler mMain = new Handler(Looper.getMainLooper());
     private final Executor mExec = Executors.newSingleThreadExecutor();
@@ -61,10 +66,13 @@ public class MainActivity extends Activity implements IReporter {
 
         getActionBar().setSubtitle("@diabl0w github/xda");
 
-        btnRun = findViewById(R.id.btnRun);
-        outputScroll = findViewById(R.id.outputScroll);
-        outputView = findViewById(R.id.outputView);
+        btnRun          = findViewById(R.id.btnRun);
+        outputScroll    = findViewById(R.id.outputScroll);
+        outputView      = findViewById(R.id.outputView);
         spinnerSuManager = findViewById(R.id.spinnerSuManager);
+        radioGroupMode  = findViewById(R.id.radioGroupMode);
+        radioKernelSU   = findViewById(R.id.radioKernelSU);
+        radioShell      = findViewById(R.id.radioShell);
 
         PackageManager pm = getPackageManager();
         List<SuManagerEntry> entries = new ArrayList<>();
@@ -78,6 +86,8 @@ public class MainActivity extends Activity implements IReporter {
         spinnerSuManager.setAdapter(new SuManagerAdapter(this, entries));
 
         SharedPreferences prefs = mDeCtx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE);
+
+        // Restore saved SU manager selection.
         String saved = prefs.getString(ExploitRunner.PREF_SU_MANAGER, null);
         boolean savedFound = false;
         for (int i = 1; i < entries.size(); i++) {
@@ -91,6 +101,24 @@ public class MainActivity extends Activity implements IReporter {
         if (!savedFound && saved != null) {
             prefs.edit().remove(ExploitRunner.PREF_SU_MANAGER).apply();
         }
+
+        // Restore saved run mode.
+        String savedMode = prefs.getString(ExploitRunner.PREF_RUN_MODE, ExploitRunner.RUN_MODE_KSU);
+        if (ExploitRunner.RUN_MODE_SHELL.equals(savedMode)) {
+            radioShell.setChecked(true);
+        } else {
+            radioKernelSU.setChecked(true);
+        }
+        applyModeUi(ExploitRunner.RUN_MODE_SHELL.equals(savedMode));
+
+        // Persist mode changes and update UI whenever the user switches.
+        radioGroupMode.setOnCheckedChangeListener((group, checkedId) -> {
+            boolean isShell = (checkedId == R.id.radioShell);
+            prefs.edit().putString(ExploitRunner.PREF_RUN_MODE,
+                    isShell ? ExploitRunner.RUN_MODE_SHELL : ExploitRunner.RUN_MODE_KSU).apply();
+            applyModeUi(isShell);
+            updateRunButton();
+        });
 
         spinnerSuManager.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -143,17 +171,39 @@ public class MainActivity extends Activity implements IReporter {
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Enable/disable UI elements depending on the selected run mode.
+     * In Shell mode the SU manager spinner is irrelevant and is grayed out.
+     */
+    private void applyModeUi(boolean isShell) {
+        spinnerSuManager.setEnabled(!isShell);
+        spinnerSuManager.setAlpha(isShell ? 0.4f : 1.0f);
+    }
+
     private void updateRunButton() {
-        btnRun.setEnabled(mValidSuManagerPos >= 1 && !new File("/dev/df").exists());
+        boolean isShell         = radioShell != null && radioShell.isChecked();
+        boolean exploitDone     = new File("/dev/df").exists();
+        boolean suManagerReady  = mValidSuManagerPos >= 1;
+        // Shell mode doesn't need a SU manager; KernelSU mode does.
+        btnRun.setEnabled(!exploitDone && (isShell || suManagerReady));
     }
 
     private void runExploit() {
+        String mode = (radioShell != null && radioShell.isChecked())
+                      ? ExploitRunner.RUN_MODE_SHELL
+                      : ExploitRunner.RUN_MODE_KSU;
         try {
-            int rc = ExploitRunner.run(mDeCtx, this);
-            String msg = rc == 0 ? "DFRoot: SUCCESS"
-                       : rc == 1 ? "DFRoot: Error - ksud nonzero exit"
-                       : rc == 2 ? "DFRoot: Error - check logcat & dmesg"
-                       : "DFRoot: Error - failed to patch files";
+            int rc = ExploitRunner.run(mDeCtx, this, mode);
+            final String msg;
+            if (ExploitRunner.RUN_MODE_SHELL.equals(mode)) {
+                msg = rc == 0 ? "Shell Mode: SUCCESS — run 'adb shell' for root access"
+                             : "Shell Mode: Error (rc=" + rc + ") — check logcat & dmesg";
+            } else {
+                msg = rc == 0 ? "KernelSU: SUCCESS"
+                    : rc == 1 ? "KernelSU: Error — ksud nonzero exit"
+                    : rc == 2 ? "KernelSU: Error — check logcat & dmesg"
+                              : "KernelSU: Error — failed to patch files";
+            }
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
         } catch (Exception e) {
             Log.e(TAG, "exploit exception", e);

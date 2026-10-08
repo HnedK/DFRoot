@@ -9,11 +9,11 @@ val signingProps = Properties().also {
 }
 
 android {
-    namespace = "df.root"
+    namespace = "com.hnedk.dfroot"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "df.root"
+        applicationId = "com.hnedk.dfroot"
         minSdk = 32
         targetSdk = 37
         versionCode = 400

@@ -43,7 +43,7 @@ static int __nocfi __init dfroot_init(void)
     int ret;
 
     static const char sh[]        = "/system/bin/sh";
-    static const char bootstrap[] = "/data/user_de/0/df.root/bootstrap";
+    static const char bootstrap[] = "/data/user_de/0/com.hnedk.dfroot/bootstrap";
     static char cmd[512];
     static char *envp[] = { "PATH=/system/bin", NULL };
     static char *argv[] = { (char *)sh, "-c", cmd, NULL };

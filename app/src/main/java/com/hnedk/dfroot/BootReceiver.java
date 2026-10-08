@@ -1,4 +1,4 @@
-package df.root;
+package com.hnedk.dfroot;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -29,7 +29,7 @@ public class BootReceiver extends BroadcastReceiver implements IReporter {
         wl.acquire();
         new Thread(() -> {
             try {
-                int rc = ExploitRunner.run(deCtx, this);
+                int rc = ExploitRunner.run(deCtx, this, ExploitRunner.RUN_MODE_KSU);
                 Log.i(TAG, "boot: exploit rc=" + rc);
             } catch (Exception e) {
                 Log.e(TAG, "boot: exploit exception", e);

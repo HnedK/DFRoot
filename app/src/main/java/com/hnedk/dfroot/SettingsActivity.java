@@ -1,4 +1,4 @@
-package df.root;
+package com.hnedk.dfroot;
 
 import android.app.Activity;
 import android.os.Bundle;

@@ -26,7 +26,7 @@ SIGN_ALIAS := df-ksu
 
 LKM_SRCS    := lkm/dfroot.c lkm/Makefile
 LKM_KOS     := $(KMIS:%=app/src/main/jni/ko/dfroot-%.ko)
-APK_SRCS    := $(wildcard app/src/main/java/df/root/*.java \
+APK_SRCS    := $(wildcard app/src/main/java/com/hnedk/dfroot/*.java \
                                app/src/main/jni/*.c app/src/main/jni/*.h \
                                app/src/main/jni/*.S app/src/main/jni/*.inc \
                                app/src/main/res/layout/*.xml \

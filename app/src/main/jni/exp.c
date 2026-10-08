@@ -552,8 +552,9 @@ static int exploit(void) {
         { "/dev/dfm4",  "bootstrap: disabling ksu modules",                 -1 },
         { "/dev/dfme1", "bootstrap: ERROR - disable modules failed",         1 },
         { "/dev/dfm5",  "bootstrap: starting SU daemon",                    -1 },
-        { "/dev/dfm6",  "ksud start: SUCCESS",                               0 },
-        { "/dev/dfme2", "ksud start: ERROR - ksud nonzero exit",             1 },
+        { "/dev/dfm6",       "ksud start: SUCCESS",                               0 },
+        { "/dev/dfme2",      "ksud start: ERROR - ksud nonzero exit",             1 },
+        { "/dev/dfm6_shell", "shell mode: adbd restarted as root - run 'adb shell' for root access", 0 },
     };
     int seen[sizeof(markers)/sizeof(markers[0])] = {0};
 

@@ -1,1 +1,1 @@
--keep class df.root.IReporter { *; }
+-keep class com.hnedk.dfroot.IReporter { *; }
