@@ -19,7 +19,9 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
@@ -27,7 +29,11 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -44,6 +50,11 @@ public class MainActivity extends Activity implements IReporter {
     private RadioGroup radioGroupMode;
     private RadioButton radioKernelSU;
     private RadioButton radioShell;
+    private LinearLayout layoutTerminal;
+    private EditText editCommand;
+    private Button btnSend;
+    private Socket mTerminalSocket;
+    private OutputStream mTerminalOut;
     private Context mDeCtx;
     private final Handler mMain = new Handler(Looper.getMainLooper());
     private final Executor mExec = Executors.newSingleThreadExecutor();
@@ -64,7 +75,7 @@ public class MainActivity extends Activity implements IReporter {
         mDeCtx = createDeviceProtectedStorageContext();
         setContentView(R.layout.activity_main);
 
-        getActionBar().setSubtitle("@diabl0w github/xda");
+        getActionBar().setSubtitle("@hnedk & @diabl0w github/xda");
 
         btnRun          = findViewById(R.id.btnRun);
         outputScroll    = findViewById(R.id.outputScroll);
@@ -73,6 +84,15 @@ public class MainActivity extends Activity implements IReporter {
         radioGroupMode  = findViewById(R.id.radioGroupMode);
         radioKernelSU   = findViewById(R.id.radioKernelSU);
         radioShell      = findViewById(R.id.radioShell);
+        layoutTerminal  = findViewById(R.id.layoutTerminal);
+        editCommand     = findViewById(R.id.editCommand);
+        btnSend         = findViewById(R.id.btnSend);
+
+        btnSend.setOnClickListener(v -> sendTerminalCommand());
+        editCommand.setOnEditorActionListener((v, actionId, event) -> {
+            sendTerminalCommand();
+            return true;
+        });
 
         PackageManager pm = getPackageManager();
         List<SuManagerEntry> entries = new ArrayList<>();
@@ -196,8 +216,11 @@ public class MainActivity extends Activity implements IReporter {
             int rc = ExploitRunner.run(mDeCtx, this, mode);
             final String msg;
             if (ExploitRunner.RUN_MODE_SHELL.equals(mode)) {
-                msg = rc == 0 ? "Shell Mode: SUCCESS — adb shell lalu ketik /data/local/tmp/su"
+                msg = rc == 0 ? "Shell Mode: SUCCESS — Terminal In-App & Shizuku Siap!"
                              : "Shell Mode: Error (rc=" + rc + ") — check logcat & dmesg";
+                if (rc == 0) {
+                    mMain.post(this::connectTerminalSession);
+                }
             } else {
                 msg = rc == 0 ? "KernelSU: SUCCESS"
                     : rc == 1 ? "KernelSU: Error — ksud nonzero exit"
@@ -211,6 +234,50 @@ public class MainActivity extends Activity implements IReporter {
         } finally {
             mMain.post(this::updateRunButton);
         }
+    }
+
+    private void connectTerminalSession() {
+        layoutTerminal.setVisibility(View.VISIBLE);
+        report("\n[Terminal In-App Root Aktif. Ketik perintah di bawah]\n");
+        mExec.execute(() -> {
+            try {
+                // Beri jeda 500ms agar daemon root socket siap listen
+                Thread.sleep(500);
+                mTerminalSocket = new Socket("127.0.0.1", 1337);
+                mTerminalOut = mTerminalSocket.getOutputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(mTerminalSocket.getInputStream()));
+
+                char[] buf = new char[1024];
+                int n;
+                while ((n = reader.read(buf)) != -1) {
+                    String chunk = new String(buf, 0, n);
+                    report(chunk);
+                }
+            } catch (Exception e) {
+                report("\n[Terminal session ended: " + e.getMessage() + "]\n");
+            }
+        });
+    }
+
+    private void sendTerminalCommand() {
+        if (editCommand == null) return;
+        String cmd = editCommand.getText().toString().trim();
+        if (cmd.isEmpty()) return;
+        editCommand.setText("");
+        report("\n# " + cmd + "\n");
+
+        mExec.execute(() -> {
+            try {
+                if (mTerminalOut != null) {
+                    mTerminalOut.write((cmd + "\n").getBytes());
+                    mTerminalOut.flush();
+                } else {
+                    mMain.post(() -> Toast.makeText(this, "Terminal belum terhubung", Toast.LENGTH_SHORT).show());
+                }
+            } catch (Exception e) {
+                report("\n[Error sending command: " + e.getMessage() + "]\n");
+            }
+        });
     }
 
     private static class SuManagerEntry {

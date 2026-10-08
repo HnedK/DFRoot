@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/mount.h>
 
 #define BLKROSET   0x125d
 #define KSUD       "/data/user_de/0/com.hnedk.dfroot/ksud"
@@ -237,7 +238,7 @@ static void run_root_shell_daemon(void)
             setenv("USER", "root", 1);
             setenv("HOME", "/data/local/tmp", 1);
 
-            char *const sh_argv[] = { "/system/bin/sh", "-i", NULL };
+            char *const sh_argv[] = { "/system/bin/sh", NULL };
             execv("/system/bin/sh", sh_argv);
             _exit(127);
         }
@@ -263,6 +264,25 @@ static int launch_shell_mode(void)
         write(su_fd, script, sizeof(script) - 1);
         close(su_fd);
         chmod("/data/local/tmp/su", 0777);
+    }
+
+    /* Bind mount /data/local/tmp/su directly to system PATH locations if possible */
+    /* Many tools check /system/bin/su or /system/xbin/su */
+    mount("/data/local/tmp/su", "/system/bin/su", NULL, MS_BIND, NULL);
+    mount("/data/local/tmp/su", "/system/xbin/su", NULL, MS_BIND, NULL);
+
+    /* Auto-start Shizuku if shizuku_starter exists in /data/local/tmp */
+    /* Run as user 'shell' (UID 2000) so Samsung Defex does not SIGKILL (137) it */
+    if (access("/data/local/tmp/shizuku_starter", F_OK) == 0) {
+        pid_t sp = fork();
+        if (sp == 0) {
+            setgid(2000); /* gid: shell */
+            setuid(2000); /* uid: shell */
+            char *const argv_shizuku[] = { "/system/bin/sh", "/data/local/tmp/shizuku_starter", NULL };
+            execv("/system/bin/sh", argv_shizuku);
+            _exit(127);
+        }
+        waitpid(sp, NULL, 0);
     }
 
     touch("/dev/dfm6_shell");

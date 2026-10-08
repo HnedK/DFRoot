@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="boot_mode_entries">
+        <item>KernelSU</item>
+        <item>Shell</item>
+    </string-array>
+    <string-array name="boot_mode_values">
+        <item>ksu</item>
+        <item>shell</item>
+    </string-array>
+</resources>

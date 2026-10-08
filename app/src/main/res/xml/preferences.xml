@@ -6,6 +6,14 @@
         android:title="Start at Boot"
         android:summary="Automatically run DFRoot on device boot" />
 
+    <ListPreference
+        android:key="boot_mode"
+        android:title="Boot Mode"
+        android:summary="Pilih mode eksekusi saat boot (KernelSU atau Shell)"
+        android:entries="@array/boot_mode_entries"
+        android:entryValues="@array/boot_mode_values"
+        android:defaultValue="ksu" />
+
     <SwitchPreference
         android:key="soft_reboot"
         android:title="Auto Soft Reboot"

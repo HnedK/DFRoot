@@ -81,4 +81,31 @@
 
     </ScrollView>
 
+    <LinearLayout
+        android:id="@+id/layoutTerminal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/editCommand"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Ketik perintah root (mis: id, ls /data)..."
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:imeOptions="actionSend"
+            android:inputType="text" />
+
+        <Button
+            android:id="@+id/btnSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kirim" />
+
+    </LinearLayout>
+
 </LinearLayout>
