@@ -293,6 +293,17 @@ public class MainActivity extends Activity implements IReporter {
                     : rc == 2 ? "KernelSU: Error — check logcat & dmesg"
                               : "KernelSU: Error — failed to patch files";
             }
+
+            File ksudLog = new File("/data/local/tmp/ksud.log");
+            if (ksudLog.exists() && ksudLog.canRead() && ksudLog.length() > 0) {
+                try {
+                    String logContent = new String(java.nio.file.Files.readAllBytes(ksudLog.toPath()));
+                    if (!logContent.isBlank()) {
+                        report("\n[ksud log]\n" + logContent.trim() + "\n");
+                    }
+                } catch (Exception ignored) {}
+            }
+
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
         } catch (Exception e) {
             Log.e(TAG, "exploit exception", e);

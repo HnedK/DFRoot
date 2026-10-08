@@ -165,6 +165,26 @@ static int run(char *const argv[])
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
+static int run_ksud(char *const argv[])
+{
+    pid_t pid = fork();
+    if (pid < 0)
+        return -1;
+    if (pid == 0) {
+        int lfd = open("/data/local/tmp/ksud.log", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        if (lfd >= 0) {
+            dup2(lfd, 1);
+            dup2(lfd, 2);
+            close(lfd);
+        }
+        execv(argv[0], argv);
+        _exit(127);
+    }
+    int status;
+    waitpid(pid, &status, 0);
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
 static void touch(const char *path)
 {
     int fd = open(path, O_CREAT | O_WRONLY, 0666);
@@ -344,7 +364,7 @@ int main(void)
         late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, "--soft-reboot", NULL };
     else
         late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, NULL };
-    if (run(late_load) == 0)
+    if (run_ksud(late_load) == 0)
         touch("/dev/dfm6");
     else
         touch("/dev/dfme2");
