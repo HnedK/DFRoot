@@ -5,8 +5,6 @@
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/ptrace.h>
-#include <linux/cred.h>
-#include <linux/sched.h>
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("DFRoot LKM");
@@ -18,22 +16,6 @@ typedef int (*umh_exec_t)(void *info, int wait);
 typedef int  (*kern_path_t)(const char *, unsigned int, struct path *);
 typedef int  (*invalidate_t)(struct address_space *);
 typedef void (*path_put_t)(const struct path *);
-
-static struct kprobe defex_enforce_kp;
-static struct kprobe defex_umh_kp;
-
-/* Safe Defex pre-handler adapted from diabl0w's Samsung KernelSU compat.
- * Only zeroes regs[0] (task = NULL -> DEFEX_ALLOW) for root tasks (UID 0).
- * Never modifies regs->pc or skips function execution, avoiding kernel crashes.
- */
-static int safe_defex_pre_handler(struct kprobe *p, struct pt_regs *regs)
-{
-    struct task_struct *task = (struct task_struct *)regs->regs[0];
-    (void)p;
-    if (task == current && current_uid().val == 0)
-        regs->regs[0] = 0;
-    return 0;
-}
 
 static int null_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
@@ -54,6 +36,8 @@ static int __nocfi __init dfroot_init(void)
     umh_exec_t  umh_exec;
     bool *selinux_state;
     struct kprobe kln_kp;
+    struct kprobe defex_enforce_kp;
+    struct kprobe defex_umh_kp;
     int defex_enforce_ok, defex_umh_ok;
     void *info;
     int ret;
@@ -103,14 +87,14 @@ static int __nocfi __init dfroot_init(void)
     WRITE_ONCE(*selinux_state, false);
     pr_info("dfroot: selinux_state permissive\n");
 
-    // Samsung Defex safe hook
+    // Samsung
     defex_enforce_kp = (struct kprobe){ .addr = (kprobe_opcode_t *)get_addr("task_defex_enforce"),
-                                .pre_handler = safe_defex_pre_handler };
+                                .pre_handler = null_pre_handler };
     defex_enforce_ok = register_kprobe(&defex_enforce_kp) == 0;
     if (!defex_enforce_ok)
         pr_err("dfroot: task_defex_enforce not in this kernel, skipping\n");
     else
-        pr_info("dfroot: task_defex_enforce safely hooked\n");
+        pr_info("dfroot: task_defex_enforce hooked\n");
     
     defex_umh_kp = (struct kprobe){ .addr = (kprobe_opcode_t *)get_addr("task_defex_user_exec"),
                               .pre_handler = null_pre_handler };
@@ -141,11 +125,9 @@ static int __nocfi __init dfroot_init(void)
     pr_info("dfroot: usermodehelper_exec(%s) returned %d\n", bootstrap, ret);
 
 done:
+    if (defex_enforce_ok) unregister_kprobe(&defex_enforce_kp);
     if (defex_umh_ok)   unregister_kprobe(&defex_umh_kp);
-    /* Keep safe defex_enforce_kp active permanently so Samsung Defex does not SIGKILL ksud / root processes */
-    if (defex_enforce_ok)
-        pr_info("dfroot: module stays resident with safe defex bypass\n");
-    return 0;
+    return -E2BIG; /* return any error to unload module */
 }
 
 /* no module_exit: we never unload; saves .exit sections */
