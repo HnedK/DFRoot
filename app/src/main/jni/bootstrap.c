@@ -234,11 +234,13 @@ static void run_root_shell_daemon(void)
             close(client_fd);
 
             /* Set environment */
-            setenv("PATH", "/system/bin:/system/xbin:/vendor/bin", 1);
+            setenv("PATH", "/data/local/tmp:/system/bin:/system/xbin:/vendor/bin", 1);
             setenv("USER", "root", 1);
             setenv("HOME", "/data/local/tmp", 1);
+            setenv("PS1", "FragSim:# ", 1);
 
-            char *const sh_argv[] = { "/system/bin/sh", "-s", NULL };
+            /* Spawn interactive root shell with PS1 prompt */
+            char *const sh_argv[] = { "/system/bin/sh", "-i", NULL };
             execv("/system/bin/sh", sh_argv);
             _exit(127);
         }

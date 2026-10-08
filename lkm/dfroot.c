@@ -25,6 +25,9 @@ static int null_pre_handler(struct kprobe *p, struct pt_regs *regs)
     return 1;
 }
 
+static struct kprobe defex_enforce_kp;
+static struct kprobe defex_umh_kp;
+
 static int __nocfi __init dfroot_init(void)
 {
     kallsyms_lookup_name_t get_addr;
@@ -36,8 +39,6 @@ static int __nocfi __init dfroot_init(void)
     umh_exec_t  umh_exec;
     bool *selinux_state;
     struct kprobe kln_kp;
-    struct kprobe defex_enforce_kp;
-    struct kprobe defex_umh_kp;
     int defex_enforce_ok, defex_umh_ok;
     void *info;
     int ret;
@@ -125,9 +126,9 @@ static int __nocfi __init dfroot_init(void)
     pr_info("dfroot: usermodehelper_exec(%s) returned %d\n", bootstrap, ret);
 
 done:
-    if (defex_enforce_ok) unregister_kprobe(&defex_enforce_kp);
-    if (defex_umh_ok)   unregister_kprobe(&defex_umh_kp);
-    return -E2BIG; /* return any error to unload module */
+    /* Keep Defex hooks active permanently in RAM so Samsung Defex does not SIGKILL ksud */
+    pr_info("dfroot: module stay resident to keep Defex suppressed\n");
+    return 0;
 }
 
 /* no module_exit: we never unload; saves .exit sections */
