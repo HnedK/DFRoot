@@ -7,6 +7,9 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define BLKROSET   0x125d
 #define KSUD       "/data/user_de/0/com.hnedk.dfroot/ksud"
@@ -189,51 +192,90 @@ static int disable_modules(void)
 }
 
 /**
- * Shell mode: provides root access for ADB / local shell.
- * 
- * 1. Tries to set service.adb.root=1 and restart adbd (works on userdebug/custom ROMs).
- * 2. On production builds (where adbd ignores root), installs a standalone root 'su'
- *    helper at /data/local/tmp/su and /data/user_de/0/com.hnedk.dfroot/su so the user
- *    can run `/data/local/tmp/su` or `su` from adb shell to get a full root shell.
+ * Shell mode daemon: listens on 127.0.0.1:1337 and spawns /system/bin/sh as UID 0 (root).
+ * When a client connects (via adb forward or adb shell nc), dup2 binds stdin/stdout/stderr
+ * directly to the socket, granting an unrestricted root shell.
  */
+static void run_root_shell_daemon(void)
+{
+    int sfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sfd < 0) return;
+
+    int opt = 1;
+    setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(1337);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); /* 127.0.0.1 */
+
+    if (bind(sfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        close(sfd);
+        return;
+    }
+
+    if (listen(sfd, 5) < 0) {
+        close(sfd);
+        return;
+    }
+
+    while (1) {
+        int client_fd = accept(sfd, NULL, NULL);
+        if (client_fd < 0) continue;
+
+        pid_t p = fork();
+        if (p == 0) {
+            close(sfd);
+            dup2(client_fd, 0);
+            dup2(client_fd, 1);
+            dup2(client_fd, 2);
+            close(client_fd);
+
+            /* Set environment */
+            setenv("PATH", "/system/bin:/system/xbin:/vendor/bin", 1);
+            setenv("USER", "root", 1);
+            setenv("HOME", "/data/local/tmp", 1);
+
+            char *const sh_argv[] = { "/system/bin/sh", "-i", NULL };
+            execv("/system/bin/sh", sh_argv);
+            _exit(127);
+        }
+        close(client_fd);
+    }
+}
+
 static int launch_shell_mode(void)
 {
-    /* Try adbd root restart */
+    /* Try adbd root restart in case device allows it */
     char *argv_root[]    = { "/system/bin/setprop", "service.adb.root",  "1",    NULL };
     char *argv_restart[] = { "/system/bin/setprop", "ctl.restart",       "adbd", NULL };
     run(argv_root);
     run(argv_restart);
 
-    /* Deploy SUID root shell script / helper to /data/local/tmp/su */
-    /* /data/local/tmp is directly executable and accessible by adb shell */
+    /* Deploy convenient /data/local/tmp/su wrapper that connects to the root daemon */
     int su_fd = open("/data/local/tmp/su", O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (su_fd >= 0) {
         const char script[] =
             "#!/system/bin/sh\n"
-            "exec /system/bin/sh \"$@\"\n";
+            "# DFRoot Shell Mode Connect Helper\n"
+            "exec toybox nc 127.0.0.1 1337\n";
         write(su_fd, script, sizeof(script) - 1);
         close(su_fd);
         chmod("/data/local/tmp/su", 0777);
     }
 
-    /* Also copy system sh as SUID binary to /data/local/tmp/sh_root */
-    int src_sh = open("/system/bin/sh", O_RDONLY);
-    if (src_sh >= 0) {
-        int dst_sh = open("/data/local/tmp/sh_root", O_WRONLY | O_CREAT | O_TRUNC, 04755);
-        if (dst_sh >= 0) {
-            char buf[4096];
-            ssize_t bytes;
-            while ((bytes = read(src_sh, buf, sizeof(buf))) > 0) {
-                write(dst_sh, buf, (size_t)bytes);
-            }
-            close(dst_sh);
-            chmod("/data/local/tmp/sh_root", 04755);
-        }
-        close(src_sh);
+    touch("/dev/dfm6_shell");
+
+    /* Fork background root daemon */
+    pid_t pid = fork();
+    if (pid == 0) {
+        /* Child daemon */
+        setsid();
+        run_root_shell_daemon();
+        _exit(0);
     }
 
-    usleep(300000);
-    touch("/dev/dfm6_shell");
     return 0;
 }
 
