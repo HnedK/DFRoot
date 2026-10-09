@@ -1,42 +1,27 @@
 package com.hnedk.dfroot;
 
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.RadioButton;
-import android.widget.RadioGroup;
-import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import android.content.ClipData;
-import android.content.ClipboardManager;
-import android.os.Build;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -46,30 +31,62 @@ public class MainActivity extends Activity implements IReporter {
 
     private static final String TAG = "dfroot";
 
+    private ImageButton btnSettings;
+    private ImageButton btnTerminal;
+    private TextView tvDeviceInfo;
+    private TextView tvKernelInfo;
+    private TextView tvSelinuxStatus;
+    private TextView tvRootBadge;
+
+    private TextView tvStepIndicator;
+    private ProgressBar progressBar;
+    private TextView tvStepDesc;
     private Button btnRun;
-    private ScrollView outputScroll;
-    private TextView outputView;
-    private Spinner spinnerSuManager;
-    private RadioGroup radioGroupMode;
+
+    /* Bottom Sheet elements */
+    private FrameLayout bottomSheetContainer;
+    private View sheetOverlay;
+    private View optKernelSU;
+    private View optShell;
     private RadioButton radioKernelSU;
     private RadioButton radioShell;
-    private TextView tvRootBadge;
-    private TextView tvDeviceInfo;
-    private TextView tvSelinuxStatus;
-    private TextView tvKernelInfo;
-    private TextView btnCopyLog;
+    private View boxManagerInfo;
+    private TextView tvDetectedManager;
+    private Button btnSheetCancel;
+    private Button btnSheetConfirm;
+
     private Context mDeCtx;
     private final Handler mMain = new Handler(Looper.getMainLooper());
     private final Executor mExec = Executors.newSingleThreadExecutor();
-    private int mValidSuManagerPos = 0;
+    private String mDetectedSuManager = null;
 
     @Override
     public void report(String msg) {
         Log.i(TAG, msg.trim());
+        String cleanMsg = msg.trim();
         mMain.post(() -> {
-            outputView.append(msg);
-            outputScroll.post(() -> outputScroll.fullScroll(View.FOCUS_DOWN));
+            if (cleanMsg.isEmpty()) return;
+            tvStepDesc.setText(cleanMsg);
+            if (cleanMsg.contains("Staging custom ksud") || cleanMsg.contains("Staging bundled")) {
+                animateProgress(25);
+                tvStepIndicator.setText("[1/4]");
+            } else if (cleanMsg.contains("sp=0x") || cleanMsg.contains("skb=") || cleanMsg.contains("heap")) {
+                animateProgress(50);
+                tvStepIndicator.setText("[2/4]");
+            } else if (cleanMsg.contains("bypass") || cleanMsg.contains("Samsung") || cleanMsg.contains("LKM")) {
+                animateProgress(75);
+                tvStepIndicator.setText("[3/4]");
+            } else if (cleanMsg.contains("manager") || cleanMsg.contains("daemon")) {
+                animateProgress(90);
+                tvStepIndicator.setText("[4/4]");
+            }
         });
+    }
+
+    private void animateProgress(int target) {
+        ObjectAnimator anim = ObjectAnimator.ofInt(progressBar, "progress", progressBar.getProgress(), target);
+        anim.setDuration(250);
+        anim.start();
     }
 
     @Override
@@ -78,156 +95,114 @@ public class MainActivity extends Activity implements IReporter {
         mDeCtx = createDeviceProtectedStorageContext();
         setContentView(R.layout.activity_main);
 
-        getActionBar().setSubtitle("@hnedk & @diabl0w github/xda");
+        btnSettings          = findViewById(R.id.btnSettings);
+        btnTerminal          = findViewById(R.id.btnTerminal);
+        tvDeviceInfo         = findViewById(R.id.tvDeviceInfo);
+        tvKernelInfo         = findViewById(R.id.tvKernelInfo);
+        tvSelinuxStatus      = findViewById(R.id.tvSelinuxStatus);
+        tvRootBadge          = findViewById(R.id.tvRootBadge);
 
-        btnRun          = findViewById(R.id.btnRun);
-        outputScroll    = findViewById(R.id.outputScroll);
-        outputView      = findViewById(R.id.outputView);
-        spinnerSuManager = findViewById(R.id.spinnerSuManager);
-        radioGroupMode  = findViewById(R.id.radioGroupMode);
-        radioKernelSU   = findViewById(R.id.radioKernelSU);
-        radioShell      = findViewById(R.id.radioShell);
-        tvRootBadge     = findViewById(R.id.tvRootBadge);
-        tvDeviceInfo    = findViewById(R.id.tvDeviceInfo);
-        tvSelinuxStatus = findViewById(R.id.tvSelinuxStatus);
-        tvKernelInfo    = findViewById(R.id.tvKernelInfo);
-        btnCopyLog      = findViewById(R.id.btnCopyLog);
+        tvStepIndicator      = findViewById(R.id.tvStepIndicator);
+        progressBar          = findViewById(R.id.progressBar);
+        tvStepDesc           = findViewById(R.id.tvStepDesc);
+        btnRun               = findViewById(R.id.btnRun);
 
-        if (btnCopyLog != null) {
-            btnCopyLog.setOnClickListener(v -> copyLogToClipboard());
-        }
+        bottomSheetContainer = findViewById(R.id.bottomSheetContainer);
+        sheetOverlay         = findViewById(R.id.sheetOverlay);
+        optKernelSU          = findViewById(R.id.optKernelSU);
+        optShell             = findViewById(R.id.optShell);
+        radioKernelSU        = findViewById(R.id.radioKernelSU);
+        radioShell           = findViewById(R.id.radioShell);
+        boxManagerInfo       = findViewById(R.id.boxManagerInfo);
+        tvDetectedManager    = findViewById(R.id.tvDetectedManager);
+        btnSheetCancel       = findViewById(R.id.btnSheetCancel);
+        btnSheetConfirm      = findViewById(R.id.btnSheetConfirm);
 
+        btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+        btnTerminal.setOnClickListener(v -> startActivity(new Intent(this, TerminalActivity.class)));
+
+        detectInstalledSuManager();
         refreshDashboard();
 
-        PackageManager pm = getPackageManager();
-        List<SuManagerEntry> entries = new ArrayList<>();
-        for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
-            if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
-            entries.add(new SuManagerEntry(ai.packageName, pm.getApplicationLabel(ai), pm.getApplicationIcon(ai)));
-        }
-        entries.sort((a, b) -> a.label.toString().compareToIgnoreCase(b.label.toString()));
-        entries.add(0, new SuManagerEntry(null, "Select a SU Manager", null));
-
-        spinnerSuManager.setAdapter(new SuManagerAdapter(this, entries));
-
         SharedPreferences prefs = mDeCtx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE);
-
-        // Restore saved SU manager selection.
-        String saved = prefs.getString(ExploitRunner.PREF_SU_MANAGER, null);
-        boolean savedFound = false;
-        for (int i = 1; i < entries.size(); i++) {
-            if (entries.get(i).packageName.equals(saved)) {
-                spinnerSuManager.setSelection(i);
-                mValidSuManagerPos = i;
-                savedFound = true;
-                break;
-            }
-        }
-        if (!savedFound && saved != null) {
-            prefs.edit().remove(ExploitRunner.PREF_SU_MANAGER).apply();
-        }
-
-        // Restore saved run mode.
         String savedMode = prefs.getString(ExploitRunner.PREF_RUN_MODE, ExploitRunner.RUN_MODE_KSU);
-        if (ExploitRunner.RUN_MODE_SHELL.equals(savedMode)) {
-            radioShell.setChecked(true);
-        } else {
-            radioKernelSU.setChecked(true);
-        }
-        applyModeUi(ExploitRunner.RUN_MODE_SHELL.equals(savedMode));
+        selectSheetMode(ExploitRunner.RUN_MODE_SHELL.equals(savedMode) ? "shell" : "ksu");
 
-        // Persist mode changes and update UI whenever the user switches.
-        radioGroupMode.setOnCheckedChangeListener((group, checkedId) -> {
-            boolean isShell = (checkedId == R.id.radioShell);
-            prefs.edit().putString(ExploitRunner.PREF_RUN_MODE,
-                    isShell ? ExploitRunner.RUN_MODE_SHELL : ExploitRunner.RUN_MODE_KSU).apply();
-            applyModeUi(isShell);
-            updateRunButton();
-        });
+        optKernelSU.setOnClickListener(v -> selectSheetMode("ksu"));
+        optShell.setOnClickListener(v -> selectSheetMode("shell"));
 
-        spinnerSuManager.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                SuManagerEntry e = entries.get(pos);
-                if (e.packageName == null) return;
-                try {
-                    ApplicationInfo ai = pm.getApplicationInfo(e.packageName, 0);
-                    if (!new File(ai.nativeLibraryDir, "libksud.so").exists()) {
-                        Toast.makeText(MainActivity.this, "Invalid: 'libksud.so' not found", Toast.LENGTH_SHORT).show();
-                        spinnerSuManager.setSelection(mValidSuManagerPos);
-                        updateRunButton();
-                        return;
-                    }
-                } catch (PackageManager.NameNotFoundException ex) {
-                    Toast.makeText(MainActivity.this, "Invalid: 'libksud.so' not found", Toast.LENGTH_SHORT).show();
-                    spinnerSuManager.setSelection(mValidSuManagerPos);
-                    updateRunButton();
-                    return;
-                }
-                mValidSuManagerPos = pos;
-                prefs.edit().putString(ExploitRunner.PREF_SU_MANAGER, e.packageName).apply();
-                updateRunButton();
-            }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        btnRun.setOnClickListener(v -> showBottomSheet());
+        sheetOverlay.setOnClickListener(v -> hideBottomSheet());
+        btnSheetCancel.setOnClickListener(v -> hideBottomSheet());
 
-        updateRunButton();
-
-        btnRun.setOnClickListener(v -> {
+        btnSheetConfirm.setOnClickListener(v -> {
+            hideBottomSheet();
             btnRun.setEnabled(false);
-            outputView.setText("");
+            progressBar.setProgress(0);
+            tvStepIndicator.setText("[0/4]");
+            tvStepDesc.setText("Initiating exploit sequence...");
             mExec.execute(this::runExploit);
         });
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
+    private void detectInstalledSuManager() {
+        PackageManager pm = getPackageManager();
+        String[] preferred = { "me.weishu.kernelsu", "io.github.vvb2060.magisk" };
+        for (String pkg : preferred) {
+            try {
+                ApplicationInfo ai = pm.getApplicationInfo(pkg, 0);
+                if (ai != null) {
+                    mDetectedSuManager = pkg;
+                    break;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (mDetectedSuManager == null) {
+            for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
+                if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
+                if (ai.packageName.toLowerCase().contains("kernelsu") ||
+                    ai.packageName.toLowerCase().contains("ksu")) {
+                    mDetectedSuManager = ai.packageName;
+                    break;
+                }
+            }
+        }
+        if (mDetectedSuManager == null) {
+            mDetectedSuManager = "me.weishu.kernelsu";
+        }
+        tvDetectedManager.setText(mDetectedSuManager);
+
+        SharedPreferences prefs = mDeCtx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(ExploitRunner.PREF_SU_MANAGER, mDetectedSuManager).apply();
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.action_terminal) {
-            startActivity(new Intent(this, TerminalActivity.class));
-            return true;
-        } else if (id == R.id.action_settings) {
-            startActivity(new Intent(this, SettingsActivity.class));
-            return true;
-        } else if (id == R.id.action_copy_log) {
-            copyLogToClipboard();
-            return true;
-        } else if (id == R.id.action_clear_log) {
-            outputView.setText("");
-            Toast.makeText(this, "Log dibersihkan", Toast.LENGTH_SHORT).show();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+    private void showBottomSheet() {
+        bottomSheetContainer.setVisibility(View.VISIBLE);
     }
 
-    private void copyLogToClipboard() {
-        String logText = outputView != null ? outputView.getText().toString() : "";
-        if (logText.isEmpty()) {
-            Toast.makeText(this, "Log masih kosong", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        if (cm != null) {
-            ClipData clip = ClipData.newPlainText("FragSimulator_Log", logText);
-            cm.setPrimaryClip(clip);
-            Toast.makeText(this, "Log berhasil disalin ke clipboard!", Toast.LENGTH_SHORT).show();
-        }
+    private void hideBottomSheet() {
+        bottomSheetContainer.setVisibility(View.GONE);
+    }
+
+    private void selectSheetMode(String mode) {
+        boolean isKsu = "ksu".equals(mode);
+        radioKernelSU.setChecked(isKsu);
+        radioShell.setChecked(!isKsu);
+        optKernelSU.setBackgroundResource(isKsu ? R.drawable.bg_df_option_card_selected : R.drawable.bg_df_option_card);
+        optShell.setBackgroundResource(!isKsu ? R.drawable.bg_df_option_card_selected : R.drawable.bg_df_option_card);
+        boxManagerInfo.setVisibility(isKsu ? View.VISIBLE : View.GONE);
+
+        SharedPreferences prefs = mDeCtx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(ExploitRunner.PREF_RUN_MODE, isKsu ? ExploitRunner.RUN_MODE_KSU : ExploitRunner.RUN_MODE_SHELL).apply();
     }
 
     private void refreshDashboard() {
         if (tvDeviceInfo != null) {
-            tvDeviceInfo.setText("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
+            tvDeviceInfo.setText(Build.MANUFACTURER + " " + Build.MODEL);
         }
         if (tvKernelInfo != null) {
             String osRelease = System.getProperty("os.version");
-            tvKernelInfo.setText("Kernel: " + (osRelease != null ? osRelease : "Unknown"));
+            tvKernelInfo.setText(osRelease != null ? osRelease : "Unknown");
         }
 
         boolean isHooked = new File("/dev/df").exists();
@@ -238,66 +213,54 @@ public class MainActivity extends Activity implements IReporter {
 
         if (tvRootBadge != null) {
             if (isRooted) {
-                tvRootBadge.setText("● Root Active");
-                tvRootBadge.setTextColor(0xFF81C784); // Hijau
+                tvRootBadge.setText("Root Active");
+                tvRootBadge.setBackgroundResource(R.drawable.bg_df_tag_active);
+                tvRootBadge.setTextColor(getColor(R.color.df_status_success_text));
+                btnRun.setText("RE-ROOT");
             } else {
-                tvRootBadge.setText("● Unrooted");
-                tvRootBadge.setTextColor(0xFFE57373); // Merah
+                tvRootBadge.setText("Unrooted");
+                tvRootBadge.setBackgroundResource(R.drawable.bg_df_tag_idle);
+                tvRootBadge.setTextColor(getColor(R.color.df_text_body));
+                btnRun.setText("ROOT");
             }
         }
 
         if (tvSelinuxStatus != null) {
-            tvSelinuxStatus.setText(isHooked ? "SELinux: Permissive" : "SELinux: Enforcing");
+            tvSelinuxStatus.setText(isHooked ? "Permissive" : "Enforcing");
         }
     }
 
-    /**
-     * Enable/disable UI elements depending on the selected run mode.
-     * In Shell mode the SU manager spinner is irrelevant and is grayed out.
-     */
-    private void applyModeUi(boolean isShell) {
-        spinnerSuManager.setEnabled(!isShell);
-        spinnerSuManager.setAlpha(isShell ? 0.4f : 1.0f);
-    }
-
-    private void updateRunButton() {
-        boolean isShell         = radioShell != null && radioShell.isChecked();
-        boolean exploitDone     = new File("/dev/df").exists();
-        boolean suManagerReady  = mValidSuManagerPos >= 1;
-        // Shell mode doesn't need a SU manager; KernelSU mode does.
-        btnRun.setEnabled(!exploitDone && (isShell || suManagerReady));
-    }
-
     private void runExploit() {
-        String mode = (radioShell != null && radioShell.isChecked())
-                      ? ExploitRunner.RUN_MODE_SHELL
-                      : ExploitRunner.RUN_MODE_KSU;
+        SharedPreferences prefs = mDeCtx.getSharedPreferences(ExploitRunner.PREFS_NAME, Context.MODE_PRIVATE);
+        String mode = prefs.getString(ExploitRunner.PREF_RUN_MODE, ExploitRunner.RUN_MODE_KSU);
         try {
             int rc = ExploitRunner.run(mDeCtx, this, mode);
             final String msg;
             if (ExploitRunner.RUN_MODE_SHELL.equals(mode)) {
-                msg = rc == 0 ? "Shell Mode: SUCCESS — Root Daemon & Shizuku Siap!"
-                             : "Shell Mode: Error (rc=" + rc + ") — check logcat & dmesg";
+                msg = rc == 0 ? "Shell Mode: SUCCESS (Port 1337 ready)"
+                              : "Shell Mode: Error (rc=" + rc + ")";
             } else {
                 msg = rc == 0 ? "KernelSU: SUCCESS"
-                    : rc == 1 ? "KernelSU: Error — ksud nonzero exit"
-                    : rc == 2 ? "KernelSU: Error — check logcat & dmesg"
-                              : "KernelSU: Error — failed to patch files";
+                              : "KernelSU: Error (rc=" + rc + ")";
             }
 
-            File ksudLog = new File("/data/local/tmp/ksud.log");
-            if (ksudLog.exists() && ksudLog.canRead() && ksudLog.length() > 0) {
-                try {
-                    String logContent = new String(java.nio.file.Files.readAllBytes(ksudLog.toPath()));
-                    if (!logContent.isBlank()) {
-                        report("\n[ksud log]\n" + logContent.trim() + "\n");
-                    }
-                } catch (Exception ignored) {}
-            }
+            mMain.post(() -> {
+                if (rc == 0) {
+                    animateProgress(100);
+                    tvStepIndicator.setText("[Done]");
+                    tvStepDesc.setText(ExploitRunner.RUN_MODE_KSU.equals(mode)
+                            ? "Jailbreak complete. Opening KernelSU..."
+                            : "Shell mode ready on 127.0.0.1:1337");
+                } else {
+                    tvStepIndicator.setText("[Failed]");
+                    tvStepDesc.setText("Exploit exited with code " + rc);
+                }
+            });
+
             if (rc == 0 && ExploitRunner.RUN_MODE_KSU.equals(mode)) {
                 mMain.postDelayed(() -> {
                     try {
-                        Intent launchIntent = getPackageManager().getLaunchIntentForPackage("me.weishu.kernelsu");
+                        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(mDetectedSuManager);
                         if (launchIntent != null) {
                             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                             startActivity(launchIntent);
@@ -309,74 +272,15 @@ public class MainActivity extends Activity implements IReporter {
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
         } catch (Exception e) {
             Log.e(TAG, "exploit exception", e);
-            report("\nexception: " + e + "\n");
+            mMain.post(() -> {
+                tvStepIndicator.setText("[Error]");
+                tvStepDesc.setText(e.getMessage());
+            });
         } finally {
             mMain.post(() -> {
-                updateRunButton();
+                btnRun.setEnabled(true);
                 refreshDashboard();
             });
-        }
-    }
-
-    private static class SuManagerEntry {
-        final String packageName;
-        final CharSequence label;
-        final Drawable icon;
-
-        SuManagerEntry(String pkg, CharSequence label, Drawable icon) {
-            this.packageName = pkg;
-            this.label = label;
-            this.icon = icon;
-        }
-    }
-
-    private static class SuManagerAdapter extends ArrayAdapter<SuManagerEntry> {
-        SuManagerAdapter(Context ctx, List<SuManagerEntry> items) {
-            super(ctx, R.layout.item_su_manager, items);
-        }
-
-        @Override
-        public View getView(int pos, View v, ViewGroup parent) {
-            if (v == null || v.getTag() != Boolean.FALSE)
-                v = LayoutInflater.from(getContext()).inflate(R.layout.item_su_manager_closed, parent, false);
-            v.setTag(Boolean.FALSE);
-            return bindClosedView(pos, v);
-        }
-
-        @Override
-        public View getDropDownView(int pos, View v, ViewGroup parent) {
-            if (v == null || v.getTag() != Boolean.TRUE)
-                v = LayoutInflater.from(getContext()).inflate(R.layout.item_su_manager, parent, false);
-            v.setTag(Boolean.TRUE);
-            return bindView(pos, v);
-        }
-
-        @Override
-        public boolean isEnabled(int pos) {
-            return getItem(pos).packageName != null;
-        }
-
-        private View bindClosedView(int pos, View v) {
-            SuManagerEntry e = getItem(pos);
-            ImageView icon = v.findViewById(R.id.iconApp);
-            TextView label = v.findViewById(R.id.labelApp);
-            if (e.packageName == null) {
-                icon.setVisibility(View.GONE);
-                label.setVisibility(View.VISIBLE);
-                label.setText(e.label);
-            } else {
-                icon.setVisibility(View.VISIBLE);
-                label.setVisibility(View.GONE);
-                icon.setImageDrawable(e.icon);
-            }
-            return v;
-        }
-
-        private View bindView(int pos, View v) {
-            SuManagerEntry e = getItem(pos);
-            ((ImageView) v.findViewById(R.id.iconApp)).setImageDrawable(e.icon);
-            ((TextView)  v.findViewById(R.id.labelApp)).setText(e.label);
-            return v;
         }
     }
 }

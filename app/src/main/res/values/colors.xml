@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Monochromatic Palette (unc0ver style) -->
+    <color name="df_bg_canvas">#000000</color>
+    <color name="df_bg_surface">#0C0D10</color>
+    <color name="df_bg_card">#15171E</color>
+    <color name="df_border_default">#262933</color>
+    <color name="df_border_light">#3B3F4D</color>
+    
+    <color name="df_text_heading">#FFFFFF</color>
+    <color name="df_text_body">#D1D5DB</color>
+    <color name="df_text_muted">#8C93A3</color>
+    <color name="df_text_dim">#5C6270</color>
+
+    <!-- Primary Action: Crisp White -->
+    <color name="df_btn_bg">#FFFFFF</color>
+    <color name="df_btn_bg_pressed">#E5E7EB</color>
+    <color name="df_btn_text">#000000</color>
+    <color name="df_btn_disabled">#262933</color>
+    <color name="df_btn_disabled_text">#5C6270</color>
+
+    <!-- Status Colors -->
+    <color name="df_status_success_bg">#112217</color>
+    <color name="df_status_success_border">#1B4329</color>
+    <color name="df_status_success_text">#4ADE80</color>
+    <color name="df_status_idle_bg">#20242E</color>
+</resources>
