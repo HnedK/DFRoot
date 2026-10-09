@@ -294,41 +294,51 @@ public class ToolboxActivity extends Activity {
     private void startFontInstallation() {
         if (mStagedFontFile == null || !mStagedFontFile.exists()) return;
         btnApplyFont.setEnabled(false);
-        log("[FONT] Building safe overlay module in /data/adb/modules/dfroot_font...");
+        log("[FONT] Initiating system-wide font installation...");
 
         mExecutor.execute(() -> {
             try {
-                // 1. Stage font into /data/local/tmp/new_font.ttf
+                // 1. Stage custom font
                 String tmpFont = "/data/local/tmp/dfroot_custom_font.ttf";
                 RootExecutor.execute("cp \"" + mStagedFontFile.getAbsolutePath() + "\" \"" + tmpFont + "\"");
                 RootExecutor.execute("chmod 644 \"" + tmpFont + "\"");
 
-                // 2. Create module directory tree
+                // 2. Prepare KernelSU module structure (/data/adb/modules/dfroot_font)
                 String fontDestDir = MODULE_DIR + "/system/fonts";
                 RootExecutor.execute("mkdir -p \"" + fontDestDir + "\"");
 
-                // 3. Write module.prop
                 String propCmd = "cat << 'EOF' > " + MODULE_DIR + "/module.prop\n" +
                         "id=dfroot_font\n" +
                         "name=DFRoot Custom Font\n" +
                         "version=1.0\n" +
                         "versionCode=1\n" +
                         "author=DFRoot\n" +
-                        "description=Non-destructive font overlay module\n" +
+                        "description=System-wide font replacement overlay\n" +
                         "EOF";
                 RootExecutor.execute(propCmd);
 
-                // 4. Overwrite standard Android & Samsung system font fallbacks
+                // Comprehensive font list covering AOSP, Google, and Samsung One UI
                 String[] standardFonts = {
                         "Roboto-Regular.ttf",
                         "Roboto-Bold.ttf",
                         "Roboto-Medium.ttf",
+                        "Roboto-Italic.ttf",
+                        "Roboto-BoldItalic.ttf",
+                        "Roboto-MediumItalic.ttf",
+                        "Roboto-Light.ttf",
+                        "Roboto-Thin.ttf",
                         "RobotoStatic-Regular.ttf",
+                        "SamsungOneUI-Regular.otf",
+                        "SamsungOneUI-Bold.otf",
                         "SamsungOne-400.ttf",
                         "SamsungOne-600.ttf",
                         "SamsungOne-700.ttf",
+                        "SamsungSans-Regular.ttf",
                         "SEC-Regular.ttf",
-                        "SECRobotoLight-Regular.ttf"
+                        "SEC-Bold.ttf",
+                        "SECRobotoLight-Regular.ttf",
+                        "SECRobotoLight-Bold.ttf",
+                        "DroidSansFallback.ttf"
                 };
 
                 for (String fontName : standardFonts) {
@@ -336,14 +346,31 @@ public class ToolboxActivity extends Activity {
                     RootExecutor.execute("chmod 644 \"" + fontDestDir + "/" + fontName + "\"");
                 }
 
-                // Clean temporary file
-                RootExecutor.execute("rm -f \"" + tmpFont + "\"");
+                // 3. Android 12/13/14 Samsung Font Provider dynamic directory injection
+                // Samsung and Android modern Font Provider prioritizes /data/fonts/files/
+                String dataFontsDir = "/data/fonts/files";
+                RootExecutor.execute("mkdir -p \"" + dataFontsDir + "\"");
+                for (String fontName : standardFonts) {
+                    RootExecutor.execute("cp \"" + tmpFont + "\" \"" + dataFontsDir + "/" + fontName + "\"");
+                    RootExecutor.execute("chmod 644 \"" + dataFontsDir + "/" + fontName + "\"");
+                }
 
-                log("[FONT SUCCESS] Module created with safe fallbacks.");
-                log("[FONT] Performing soft-reboot to load font without full restart...");
+                // 4. Perform direct bind mounts over currently active /system/fonts files
+                // This ensures instant effect even before next full reboot
+                for (String fontName : standardFonts) {
+                    RootExecutor.execute("[ -f \"/system/fonts/" + fontName + "\" ] && mount -o bind \"" + tmpFont + "\" \"/system/fonts/" + fontName + "\"");
+                }
 
-                // Soft reboot to reload Zygote and font cache
-                RootExecutor.execute("killall -9 system_server || setprop ctl.restart zygote");
+                // 5. Clear all font caches
+                RootExecutor.execute("rm -rf /data/system/fontconfig/* /data/fonts/cache/* /data/data/*/cache/font* 2>/dev/null");
+
+                log("[FONT SUCCESS] System & Samsung font files mapped successfully.");
+                log("[FONT] Triggering soft reboot to force all running apps (WhatsApp, Chrome, System UI) to reload fonts...");
+
+                // 6. Trigger true soft reboot (kills system_server and restarts zygote cleanly)
+                // This will briefly black out screen and return to lockscreen
+                String softRebootCmd = "pkill -9 -f system_server || kill -9 $(pidof system_server) || setprop ctl.restart zygote";
+                RootExecutor.execute(softRebootCmd);
 
                 mMain.post(() -> {
                     btnApplyFont.setEnabled(true);
@@ -359,13 +386,21 @@ public class ToolboxActivity extends Activity {
 
     private void startFontReset() {
         btnResetFont.setEnabled(false);
-        log("[FONT] Restoring stock font by removing module directory...");
+        log("[FONT] Restoring stock font across all layers...");
 
         mExecutor.execute(() -> {
             try {
+                // Remove module and data font updates
                 RootExecutor.execute("rm -rf \"" + MODULE_DIR + "\"");
-                log("[FONT] Module removed. Performing soft reboot...");
-                RootExecutor.execute("killall -9 system_server || setprop ctl.restart zygote");
+                RootExecutor.execute("rm -rf /data/fonts/files/* /data/system/fontconfig/*");
+
+                // Unmount any active bind mounts
+                String unmountCmd = "for f in /system/fonts/*; do umount -l \"$f\" 2>/dev/null; done";
+                RootExecutor.execute(unmountCmd);
+
+                log("[FONT] Restored stock configuration. Triggering soft reboot...");
+                String softRebootCmd = "pkill -9 -f system_server || kill -9 $(pidof system_server) || setprop ctl.restart zygote";
+                RootExecutor.execute(softRebootCmd);
 
                 mMain.post(() -> {
                     btnResetFont.setEnabled(true);
