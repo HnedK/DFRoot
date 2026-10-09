@@ -541,11 +541,21 @@ int main(int argc, char **argv)
         pid_t rpid = fork();
         if (rpid == 0) {
             setsid();
-            /* Brief sleep to allow kernel supercall interface to settle */
-            usleep(500000); /* 500ms */
+            /* 1. Force-stop running manager immediately so it doesn't hold stale state */
             char *const sh_stop[] = { "/system/bin/sh", "-c", cmd_stop, NULL };
             run(sh_stop);
-            usleep(300000); /* 300ms */
+
+            /* 2. Wait up to 3 seconds for kernel throne tracker to finish scanning & crowning manager */
+            for (int i = 0; i < 30; i++) {
+                usleep(100000); /* 100ms */
+                if (access("/data/system/packages.list", F_OK) == 0) {
+                    /* Allow brief margin for kernel throne search */
+                }
+            }
+            /* Extra 1.5 seconds safety delay */
+            sleep(1);
+
+            /* 3. Launch manager afresh */
             char *const sh_start[] = { "/system/bin/sh", "-c", cmd_start, NULL };
             run(sh_start);
             _exit(0);

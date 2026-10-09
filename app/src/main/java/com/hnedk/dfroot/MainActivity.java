@@ -303,7 +303,7 @@ public class MainActivity extends Activity implements IReporter {
                             startActivity(launchIntent);
                         }
                     } catch (Exception ignored) {}
-                }, 800);
+                }, 3500);
             }
 
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
