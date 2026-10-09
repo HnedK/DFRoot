@@ -182,8 +182,49 @@ static int run(char *const argv[])
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
-static int run_ksud(char *const argv[])
+static int copy_file(const char *src, const char *dst)
 {
+    int sfd = open(src, O_RDONLY);
+    if (sfd < 0) return -1;
+    int dfd = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0755);
+    if (dfd < 0) { close(sfd); return -1; }
+    char buf[8192];
+    ssize_t n;
+    while ((n = read(sfd, buf, sizeof(buf))) > 0) {
+        if (write(dfd, buf, n) != n) {
+            close(sfd);
+            close(dfd);
+            return -1;
+        }
+    }
+    close(sfd);
+    close(dfd);
+    chmod(dst, 0755);
+    return 0;
+}
+
+static int is_ksu_active(void)
+{
+    if (access("/sys/module/kernelsu", F_OK) == 0) return 1;
+    if (access("/data/adb/ksud", F_OK) == 0) return 1;
+    if (access("/data/adb/ksu", F_OK) == 0) return 1;
+    return 0;
+}
+
+static int run_ksud(char *argv[])
+{
+    /* 1. Stage ksud to /data/local/tmp/.ksud-stage (expected by ksud late-load logic) */
+    copy_file(KSUD, "/data/local/tmp/.ksud-stage");
+
+    /* 2. Samsung DEFEX bypass: bind-mount .ksud-stage over /system/bin/atrace */
+    const char *stage = "/data/local/tmp/.ksud-stage";
+    mount(stage, "/system/bin/atrace", NULL, MS_BIND, NULL);
+
+    /* Use /system/bin/atrace to bypass Samsung DEFEX execution restrictions */
+    const char *bin = (access("/system/bin/atrace", X_OK) == 0) ? "/system/bin/atrace"
+                    : (access(stage, X_OK) == 0) ? stage : KSUD;
+    argv[0] = (char *)bin;
+
     pid_t pid = fork();
     if (pid < 0)
         return -1;
@@ -197,9 +238,32 @@ static int run_ksud(char *const argv[])
         execv(argv[0], argv);
         _exit(127);
     }
-    int status;
-    waitpid(pid, &status, 0);
-    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+
+    /* 3. Non-blocking monitor loop: poll up to 15 seconds (150 x 100ms) */
+    for (int i = 0; i < 150; i++) {
+        /* Pulse sys.boot_completed = 1 so ksud does not wait indefinitely */
+        char *argv_bc[] = { "/system/bin/setprop", "sys.boot_completed", "1", NULL };
+        run(argv_bc);
+
+        /* Check if KernelSU is already active in kernel or filesystem */
+        if (is_ksu_active()) {
+            return 0;
+        }
+
+        int status;
+        pid_t r = waitpid(pid, &status, WNOHANG);
+        if (r == pid) {
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+                return 0;
+            if (is_ksu_active())
+                return 0;
+            return -1;
+        }
+
+        usleep(100000); /* 100 ms */
+    }
+
+    return is_ksu_active() ? 0 : -1;
 }
 
 static void touch(const char *path)
@@ -305,13 +369,15 @@ static void setup_root_environment(int auto_shizuku, int is_shell_mode)
         chmod("/data/local/tmp/su", 0777);
     }
 
-    /* Bind mount /data/local/tmp/su directly to system PATH locations if possible */
-    mount("/data/local/tmp/su", "/system/bin/su", NULL, MS_BIND, NULL);
-    mount("/data/local/tmp/su", "/system/xbin/su", NULL, MS_BIND, NULL);
-    mount("/data/local/tmp/su", "/bin/su", NULL, MS_BIND, NULL);
-    mount("/data/local/tmp/su", "/apex/com.android.runtime/bin/su", NULL, MS_BIND, NULL);
+    /* Bind mount /data/local/tmp/su directly to system PATH locations in shell mode */
+    if (is_shell_mode) {
+        mount("/data/local/tmp/su", "/system/bin/su", NULL, MS_BIND, NULL);
+        mount("/data/local/tmp/su", "/system/xbin/su", NULL, MS_BIND, NULL);
+        mount("/data/local/tmp/su", "/bin/su", NULL, MS_BIND, NULL);
+        mount("/data/local/tmp/su", "/apex/com.android.runtime/bin/su", NULL, MS_BIND, NULL);
+    }
 
-    /* Auto-start Shizuku if enabled */
+    /* Auto-start Shizuku if enabled (runs in background as user shell UID 2000) */
     if (auto_shizuku) {
         const char *shizuku_candidates[] = {
             "/data/local/tmp/shizuku_starter",
@@ -331,13 +397,13 @@ static void setup_root_environment(int auto_shizuku, int is_shell_mode)
         if (found_shizuku) {
             pid_t sp = fork();
             if (sp == 0) {
+                setsid();
                 setgid(2000); /* gid: shell */
                 setuid(2000); /* uid: shell */
                 char *const argv_shizuku[] = { "/system/bin/sh", (char *)found_shizuku, NULL };
                 execv("/system/bin/sh", argv_shizuku);
                 _exit(127);
             }
-            waitpid(sp, NULL, 0);
         }
     }
 
