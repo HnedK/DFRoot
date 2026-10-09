@@ -349,6 +349,49 @@ static void run_root_shell_daemon(void)
     }
 }
 
+
+static void spawn_shizuku_as_shell(void)
+{
+    const char *shizuku_candidates[] = {
+        "/data/local/tmp/shizuku_starter",
+        "/sdcard/Android/data/moe.shizuku.privileged.api/start.sh",
+        "/storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh",
+        "/sdcard/Android/data/moe.shizuku.privileged.api/files/start.sh",
+        "/data/user_de/0/moe.shizuku.privileged.api/files/start.sh",
+        "/data/data/moe.shizuku.privileged.api/files/start.sh",
+        NULL
+    };
+    const char *found_shizuku = NULL;
+    for (int i = 0; shizuku_candidates[i]; i++) {
+        if (access(shizuku_candidates[i], F_OK) == 0) {
+            found_shizuku = shizuku_candidates[i];
+            break;
+        }
+    }
+    if (!found_shizuku) {
+        printf("Shizuku starter script not found. Make sure Shizuku app is installed.\n");
+        return;
+    }
+
+    pid_t sp = fork();
+    if (sp == 0) {
+        setsid();
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, 0);
+            dup2(devnull, 1);
+            dup2(devnull, 2);
+            close(devnull);
+        }
+        setgid(2000); /* gid: shell */
+        setuid(2000); /* uid: shell */
+        char *const argv_shizuku[] = { "/system/bin/sh", (char *)found_shizuku, NULL };
+        execv("/system/bin/sh", argv_shizuku);
+        _exit(127);
+    }
+    printf("Shizuku starter launched as UID 2000 (shell) via %s\n", found_shizuku);
+}
+
 static void setup_root_environment(int auto_shizuku, int is_shell_mode)
 {
     /* Try adbd root restart in case device allows it */
@@ -369,6 +412,18 @@ static void setup_root_environment(int auto_shizuku, int is_shell_mode)
         chmod("/data/local/tmp/su", 0777);
     }
 
+    /* Deploy start_shizuku helper script to drop UID to 2000 and bypass Defex */
+    int shz_fd = open("/data/local/tmp/start_shizuku", O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    if (shz_fd >= 0) {
+        const char script[] =
+            "#!/system/bin/sh\n"
+            "# Start Shizuku as user shell (UID 2000) to bypass Samsung Defex SIGKILL\n"
+            "/data/user_de/0/com.hnedk.dfroot/bootstrap --shizuku\n";
+        write(shz_fd, script, sizeof(script) - 1);
+        close(shz_fd);
+        chmod("/data/local/tmp/start_shizuku", 0777);
+    }
+
     /* Bind mount /data/local/tmp/su directly to system PATH locations in shell mode */
     if (is_shell_mode) {
         mount("/data/local/tmp/su", "/system/bin/su", NULL, MS_BIND, NULL);
@@ -379,32 +434,7 @@ static void setup_root_environment(int auto_shizuku, int is_shell_mode)
 
     /* Auto-start Shizuku if enabled (runs in background as user shell UID 2000) */
     if (auto_shizuku) {
-        const char *shizuku_candidates[] = {
-            "/data/local/tmp/shizuku_starter",
-            "/sdcard/Android/data/moe.shizuku.privileged.api/start.sh",
-            "/sdcard/Android/data/moe.shizuku.privileged.api/files/start.sh",
-            "/data/user_de/0/moe.shizuku.privileged.api/files/start.sh",
-            "/data/data/moe.shizuku.privileged.api/files/start.sh",
-            NULL
-        };
-        const char *found_shizuku = NULL;
-        for (int i = 0; shizuku_candidates[i]; i++) {
-            if (access(shizuku_candidates[i], F_OK) == 0) {
-                found_shizuku = shizuku_candidates[i];
-                break;
-            }
-        }
-        if (found_shizuku) {
-            pid_t sp = fork();
-            if (sp == 0) {
-                setsid();
-                setgid(2000); /* gid: shell */
-                setuid(2000); /* uid: shell */
-                char *const argv_shizuku[] = { "/system/bin/sh", (char *)found_shizuku, NULL };
-                execv("/system/bin/sh", argv_shizuku);
-                _exit(127);
-            }
-        }
+        spawn_shizuku_as_shell();
     }
 
     if (is_shell_mode) {
@@ -427,8 +457,13 @@ static int launch_shell_mode(int auto_shizuku)
     return 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc >= 2 && !strcmp(argv[1], "--shizuku")) {
+        spawn_shizuku_as_shell();
+        return 0;
+    }
+
     touch("/dev/dfm1");
     char su_manager[256];
     char run_mode[32];

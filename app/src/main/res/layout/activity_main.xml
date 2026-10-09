@@ -192,39 +192,4 @@
 
     </ScrollView>
 
-    <!-- In-App Terminal Input -->
-    <LinearLayout
-        android:id="@+id/layoutTerminal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@drawable/bg_input_box"
-        android:paddingStart="12dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:gravity="center_vertical"
-        android:visibility="gone">
-
-        <EditText
-            android:id="@+id/editCommand"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="root # ketik perintah..."
-            android:fontFamily="monospace"
-            android:textSize="13sp"
-            android:background="@null"
-            android:imeOptions="actionSend"
-            android:inputType="text" />
-
-        <Button
-            android:id="@+id/btnSend"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:textSize="12sp"
-            android:text="Kirim" />
-
-    </LinearLayout>
-
 </LinearLayout>

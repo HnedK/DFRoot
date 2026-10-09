@@ -78,7 +78,7 @@ public class TerminalActivity extends Activity {
         bindChip(R.id.chipId, "id");
         bindChip(R.id.chipWhoami, "whoami");
         bindChip(R.id.chipUname, "uname -a");
-        bindChip(R.id.chipShizuku, "sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh || sh /data/local/tmp/shizuku_starter || sh /data/user_de/0/moe.shizuku.privileged.api/files/start.sh");
+        bindChip(R.id.chipShizuku, "/data/local/tmp/start_shizuku || /data/user_de/0/com.hnedk.dfroot/bootstrap --shizuku");
         bindChip(R.id.chipLs, "ls -la /data");
         bindChip(R.id.chipDmesg, "dmesg | tail -n 25");
         bindChip(R.id.chipPs, "ps -ef | grep -E 'ksu|su|root'");

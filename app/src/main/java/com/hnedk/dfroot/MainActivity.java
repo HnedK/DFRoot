@@ -53,16 +53,11 @@ public class MainActivity extends Activity implements IReporter {
     private RadioGroup radioGroupMode;
     private RadioButton radioKernelSU;
     private RadioButton radioShell;
-    private LinearLayout layoutTerminal;
-    private EditText editCommand;
-    private Button btnSend;
     private TextView tvRootBadge;
     private TextView tvDeviceInfo;
     private TextView tvSelinuxStatus;
     private TextView tvKernelInfo;
     private TextView btnCopyLog;
-    private Socket mTerminalSocket;
-    private OutputStream mTerminalOut;
     private Context mDeCtx;
     private final Handler mMain = new Handler(Looper.getMainLooper());
     private final Executor mExec = Executors.newSingleThreadExecutor();
@@ -92,20 +87,11 @@ public class MainActivity extends Activity implements IReporter {
         radioGroupMode  = findViewById(R.id.radioGroupMode);
         radioKernelSU   = findViewById(R.id.radioKernelSU);
         radioShell      = findViewById(R.id.radioShell);
-        layoutTerminal  = findViewById(R.id.layoutTerminal);
-        editCommand     = findViewById(R.id.editCommand);
-        btnSend         = findViewById(R.id.btnSend);
         tvRootBadge     = findViewById(R.id.tvRootBadge);
         tvDeviceInfo    = findViewById(R.id.tvDeviceInfo);
         tvSelinuxStatus = findViewById(R.id.tvSelinuxStatus);
         tvKernelInfo    = findViewById(R.id.tvKernelInfo);
         btnCopyLog      = findViewById(R.id.btnCopyLog);
-
-        btnSend.setOnClickListener(v -> sendTerminalCommand());
-        editCommand.setOnEditorActionListener((v, actionId, event) -> {
-            sendTerminalCommand();
-            return true;
-        });
 
         if (btnCopyLog != null) {
             btnCopyLog.setOnClickListener(v -> copyLogToClipboard());
@@ -263,13 +249,6 @@ public class MainActivity extends Activity implements IReporter {
         if (tvSelinuxStatus != null) {
             tvSelinuxStatus.setText(isHooked ? "SELinux: Permissive" : "SELinux: Enforcing");
         }
-
-        if (isRooted && layoutTerminal != null) {
-            layoutTerminal.setVisibility(View.VISIBLE);
-            if (mTerminalSocket == null || mTerminalSocket.isClosed()) {
-                connectTerminalSession();
-            }
-        }
     }
 
     /**
@@ -297,19 +276,13 @@ public class MainActivity extends Activity implements IReporter {
             int rc = ExploitRunner.run(mDeCtx, this, mode);
             final String msg;
             if (ExploitRunner.RUN_MODE_SHELL.equals(mode)) {
-                msg = rc == 0 ? "Shell Mode: SUCCESS — Terminal In-App & Shizuku Siap!"
+                msg = rc == 0 ? "Shell Mode: SUCCESS — Root Daemon & Shizuku Siap!"
                              : "Shell Mode: Error (rc=" + rc + ") — check logcat & dmesg";
-                if (rc == 0) {
-                    mMain.post(this::connectTerminalSession);
-                }
             } else {
                 msg = rc == 0 ? "KernelSU: SUCCESS"
                     : rc == 1 ? "KernelSU: Error — ksud nonzero exit"
                     : rc == 2 ? "KernelSU: Error — check logcat & dmesg"
                               : "KernelSU: Error — failed to patch files";
-                if (rc == 0) {
-                    mMain.post(this::connectTerminalSession);
-                }
             }
 
             File ksudLog = new File("/data/local/tmp/ksud.log");
@@ -332,61 +305,6 @@ public class MainActivity extends Activity implements IReporter {
                 refreshDashboard();
             });
         }
-    }
-
-    private void connectTerminalSession() {
-        if (layoutTerminal != null) {
-            layoutTerminal.setVisibility(View.VISIBLE);
-        }
-        if (mTerminalSocket != null && !mTerminalSocket.isClosed()) {
-            return;
-        }
-        report("\n[Terminal In-App Root Aktif. Ketik perintah di bawah]\n");
-        new Thread(() -> {
-            try {
-                // Beri jeda 800ms agar daemon root socket siap listen
-                Thread.sleep(800);
-                mTerminalSocket = new Socket("127.0.0.1", 1337);
-                mTerminalOut = mTerminalSocket.getOutputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(mTerminalSocket.getInputStream()));
-
-                char[] buf = new char[1024];
-                int n;
-                while ((n = reader.read(buf)) != -1) {
-                    String chunk = new String(buf, 0, n);
-                    report(chunk);
-                }
-            } catch (Exception e) {
-                report("\n[Terminal session ended: " + e.getMessage() + "]\n");
-            } finally {
-                try {
-                    if (mTerminalSocket != null) mTerminalSocket.close();
-                } catch (Exception ignored) {}
-                mTerminalSocket = null;
-                mTerminalOut = null;
-            }
-        }, "Terminal-Reader").start();
-    }
-
-    private void sendTerminalCommand() {
-        if (editCommand == null) return;
-        String cmd = editCommand.getText().toString().trim();
-        if (cmd.isEmpty()) return;
-        editCommand.setText("");
-        report("\n# " + cmd + "\n");
-
-        mExec.execute(() -> {
-            try {
-                if (mTerminalOut != null) {
-                    mTerminalOut.write((cmd + "\n").getBytes());
-                    mTerminalOut.flush();
-                } else {
-                    mMain.post(() -> Toast.makeText(this, "Terminal belum terhubung", Toast.LENGTH_SHORT).show());
-                }
-            } catch (Exception e) {
-                report("\n[Error sending command: " + e.getMessage() + "]\n");
-            }
-        });
     }
 
     private static class SuManagerEntry {
