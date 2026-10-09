@@ -57,6 +57,16 @@
             </LinearLayout>
 
             <ImageButton
+                android:id="@+id/btnToolbox"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_df_icon_btn"
+                android:src="@drawable/ic_toolbox"
+                android:contentDescription="Toolbox"
+                android:scaleType="centerInside"
+                android:layout_marginEnd="8dp" />
+
+            <ImageButton
                 android:id="@+id/btnTerminal"
                 android:layout_width="40dp"
                 android:layout_height="40dp"

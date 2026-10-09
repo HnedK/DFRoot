@@ -32,6 +32,7 @@ public class MainActivity extends Activity implements IReporter {
     private static final String TAG = "dfroot";
 
     private ImageButton btnSettings;
+    private ImageButton btnToolbox;
     private ImageButton btnTerminal;
     private TextView tvDeviceInfo;
     private TextView tvKernelInfo;
@@ -96,6 +97,7 @@ public class MainActivity extends Activity implements IReporter {
         setContentView(R.layout.activity_main);
 
         btnSettings          = findViewById(R.id.btnSettings);
+        btnToolbox           = findViewById(R.id.btnToolbox);
         btnTerminal          = findViewById(R.id.btnTerminal);
         tvDeviceInfo         = findViewById(R.id.tvDeviceInfo);
         tvKernelInfo         = findViewById(R.id.tvKernelInfo);
@@ -119,6 +121,7 @@ public class MainActivity extends Activity implements IReporter {
         btnSheetConfirm      = findViewById(R.id.btnSheetConfirm);
 
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+        btnToolbox.setOnClickListener(v -> startActivity(new Intent(this, ToolboxActivity.class)));
         btnTerminal.setOnClickListener(v -> startActivity(new Intent(this, TerminalActivity.class)));
 
         detectInstalledSuManager();

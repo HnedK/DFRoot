@@ -34,6 +34,12 @@
             android:windowSoftInputMode="adjustResize"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".ToolboxActivity"
+            android:exported="false"
+            android:label="Toolbox"
+            android:parentActivityName=".MainActivity" />
+
         <receiver
             android:name=".BootReceiver"
             android:directBootAware="true"
