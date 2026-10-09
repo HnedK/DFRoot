@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFRoot unc0ver Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Monochromatic Palette: Pure Black, Slate Grey, Crisp White (Authentic unc0ver aesthetics) */
+            --bg-canvas: #000000;
+            --bg-surface: #0c0d10;
+            --bg-card: #15171e;
+            --border-default: #262933;
+            --border-light: #3b3f4d;
+            --border-focus: #ffffff;
+
+            /* High Contrast Neutral Typography */
+            --text-heading: #ffffff;
+            --text-body: #d1d5db;
+            --text-muted: #8c93a3;
+            --text-dim: #5c6270;
+
+            /* Single Deliberate Accent: Electric Blue / Crisp White */
+            --accent-primary: #ffffff;
+            --accent-primary-hover: #e5e7eb;
+            --accent-primary-text: #000000;
+
+            --status-success-bg: #112217;
+            --status-success-border: #1b4329;
+            --status-success-text: #4ade80;
+
+            /* Proportional Radii */
+            --radius-btn: 14px;
+            --radius-card: 16px;
+            --radius-sheet: 24px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #07080a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            color: var(--text-body);
+            padding: 24px;
+        }
+
+        /* Mockup Frame */
+        .phone-frame {
+            width: 380px;
+            height: 760px;
+            background-color: var(--bg-surface);
+            border-radius: 44px;
+            border: 4px solid var(--border-default);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 38px;
+            padding: 12px 22px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* Header Navigation */
+        .header {
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-default);
+        }
+
+        .icon-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-heading);
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .icon-btn:hover, .icon-btn:focus-visible {
+            background: #1f232d;
+            border-color: var(--border-light);
+            outline: 2px solid var(--border-focus);
+            outline-offset: 1px;
+        }
+
+        .app-title {
+            text-align: center;
+        }
+
+        .app-title h1 {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            color: var(--text-heading);
+        }
+
+        .app-title span {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.4px;
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        /* unc0ver Logo & Header Section */
+        .hero-banner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .logo-box {
+            width: 68px;
+            height: 68px;
+            border-radius: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            color: var(--text-heading);
+        }
+
+        .credits-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .credits-text strong {
+            color: var(--text-heading);
+            font-weight: 700;
+        }
+
+        /* Information Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-card);
+            padding: 14px 16px;
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-row + .card-row {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-val {
+            font-size: 13px;
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        .status-tag {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #20242e;
+            color: var(--text-body);
+            border: 1px solid var(--border-default);
+        }
+
+        .status-tag.active {
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
+            border-color: var(--status-success-border);
+        }
+
+        /* Progress Card */
+        .progress-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-card);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-heading);
+        }
+
+        .progress-step {
+            color: var(--text-heading);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .progress-bar-track {
+            height: 6px;
+            background: var(--border-default);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--text-heading);
+            transition: width 0.3s ease;
+        }
+
+        .progress-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Bottom Action Button */
+        .footer-action {
+            padding: 16px 18px 24px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-default);
+        }
+
+        .btn-root {
+            width: 100%;
+            height: 52px;
+            background: var(--accent-primary);
+            border: none;
+            border-radius: var(--radius-btn);
+            color: var(--accent-primary-text);
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.05s ease;
+        }
+
+        .btn-root:hover, .btn-root:focus-visible {
+            background: var(--accent-primary-hover);
+            outline: 2px solid var(--border-focus);
+            outline-offset: 2px;
+        }
+
+        .btn-root:active {
+            transform: scale(0.985);
+        }
+
+        .btn-root:disabled {
+            background: var(--border-default);
+            color: var(--text-dim);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Sheet Overlay */
+        .sheet-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+        }
+
+        .sheet-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Bottom Sheet Popup */
+        .bottom-sheet {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            background: #111318;
+            border-top: 1px solid var(--border-light);
+            border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+            padding: 18px 20px 28px;
+            transform: translateY(100%);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 101;
+        }
+
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+
+        .sheet-handle {
+            width: 34px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-default);
+            margin: 0 auto 16px;
+        }
+
+        .sheet-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 2px;
+        }
+
+        .sheet-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option-item {
+            border: 1px solid var(--border-default);
+            border-radius: 14px;
+            padding: 12px 14px;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .option-item:hover, .option-item:focus-visible {
+            border-color: var(--border-light);
+            outline: none;
+        }
+
+        .option-item.selected {
+            border-color: var(--border-focus);
+            background: #1a1e27;
+        }
+
+        .option-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-heading);
+        }
+
+        .option-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .radio-indicator {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid var(--border-default);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .option-item.selected .radio-indicator {
+            border-color: var(--border-focus);
+        }
+
+        .option-item.selected .radio-indicator::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border-focus);
+        }
+
+        .manager-info-box {
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: #090b0e;
+            border-radius: 8px;
+            border: 1px solid var(--border-default);
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .manager-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        .sheet-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-cancel:hover, .btn-cancel:focus-visible {
+            background: #20242e;
+            color: var(--text-heading);
+            outline: 2px solid var(--border-focus);
+        }
+
+        .btn-confirm {
+            flex: 1.5;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--accent-primary);
+            border: none;
+            color: var(--accent-primary-text);
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-confirm:hover, .btn-confirm:focus-visible {
+            background: var(--accent-primary-hover);
+            outline: 2px solid var(--border-focus);
+        }
+
+        /* Desktop Presentation Aside */
+        .side-panel {
+            max-width: 400px;
+            margin-left: 36px;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .side-panel h2 {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-heading);
+            margin-bottom: 8px;
+        }
+
+        .badge-unc0ver {
+            display: inline-block;
+            background: #15171e;
+            color: #ffffff;
+            border: 1px solid var(--border-light);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .feature-list {
+            margin-top: 10px;
+            list-style: none;
+        }
+
+        .feature-list li {
+            margin-bottom: 8px;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #ffffff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <main class="phone-frame" role="region" aria-label="DFRoot Jailbreak Tool">
+        <header class="status-bar" aria-hidden="true">
+            <span>17:25</span>
+            <span>Samsung A14 5G</span>
+        </header>
+
+        <div class="header">
+            <button class="icon-btn" aria-label="Open Settings" onclick="alert('Opening Settings')">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+            <div class="app-title">
+                <h1>DFROOT</h1>
+                <span>Samsung Jailbreak</span>
+            </div>
+            <button class="icon-btn" aria-label="Open Root Terminal" onclick="alert('Opening Root Terminal')">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </button>
+        </div>
+
+        <section class="content">
+            <div class="hero-banner">
+                <div class="logo-box">
+                    <svg width="34" height="34" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <div class="credits-text">
+                    Engine by <strong>diabl0w</strong>, <strong>snothin</strong>, <strong>hnedk</strong><br>
+                    KernelSU LKM for kernel 6.6.50
+                </div>
+            </div>
+
+            <article class="card">
+                <div class="card-row">
+                    <div>
+                        <div class="info-label">Device</div>
+                        <div class="info-val">Samsung A14 5G (SM-A146P)</div>
+                    </div>
+                    <div id="statusBadge" class="status-tag">Unrooted</div>
+                </div>
+                <div class="card-row">
+                    <div>
+                        <div class="info-label">Kernel</div>
+                        <div class="info-val" style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">6.6.50-android15-8-ab...</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="info-label">SELinux</div>
+                        <div class="info-val" style="font-size: 12px; color: #4ade80;">Permissive</div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="progress-card">
+                <div class="progress-header">
+                    <span class="progress-title">Exploit Status</span>
+                    <span id="stepIndicator" class="progress-step">[Ready]</span>
+                </div>
+                <div class="progress-bar-track">
+                    <div id="progressBar" class="progress-bar-fill"></div>
+                </div>
+                <div id="stepDesc" class="progress-desc">Tap 'ROOT' button below to begin</div>
+            </article>
+        </section>
+
+        <footer class="footer-action">
+            <button id="btnRoot" class="btn-root" onclick="openBottomSheet()">
+                <span id="btnRootText">ROOT</span>
+            </button>
+        </footer>
+
+        <!-- BOTTOM SHEET -->
+        <div id="sheetOverlay" class="sheet-overlay" onclick="closeBottomSheet()"></div>
+        <div id="bottomSheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+            <div class="sheet-handle"></div>
+            <h2 id="sheetTitle" class="sheet-title">Select Jailbreak Mode</h2>
+            <p class="sheet-subtitle">Choose operational mode before exploitation</p>
+
+            <div class="option-group">
+                <div id="optKsu" class="option-item selected" tabindex="0" role="button" onclick="selectMode('ksu')" onkeydown="handleKey(event, 'ksu')">
+                    <div>
+                        <div class="option-title">KernelSU (Recommended)</div>
+                        <div class="option-desc">Module support, Superuser tab &amp; full hooking</div>
+                    </div>
+                    <div class="radio-indicator"></div>
+                </div>
+
+                <div id="managerBox" class="manager-info-box">
+                    <span style="color: var(--text-muted);">Detected Manager:</span>
+                    <span class="manager-name">me.weishu.kernelsu</span>
+                </div>
+
+                <div id="optShell" class="option-item" tabindex="0" role="button" onclick="selectMode('shell')" onkeydown="handleKey(event, 'shell')">
+                    <div>
+                        <div class="option-title">Root Shell Daemon</div>
+                        <div class="option-desc">Port 1337 daemon + Shizuku (No manager APK required)</div>
+                    </div>
+                    <div class="radio-indicator"></div>
+                </div>
+            </div>
+
+            <div class="sheet-actions">
+                <button class="btn-cancel" onclick="closeBottomSheet()">Cancel</button>
+                <button class="btn-confirm" onclick="confirmJailbreak()">Confirm &amp; Run</button>
+            </div>
+        </div>
+    </main>
+
+    <aside class="side-panel">
+        <span class="badge-unc0ver">MONOCHROME EDITION</span>
+        <h2>unc0ver Clean Theme</h2>
+        <p>Updated to authentic unc0ver style with dark grey &amp; crisp white tones:</p>
+        <ul class="feature-list">
+            <li><strong>Monochrome Palette:</strong> Deep black surface (`#0c0d10`), slate card (`#15171e`), subtle border (`#262933`), and white primary action.</li>
+            <li><strong>English Typography:</strong> Full English copywriting throughout the interface, with zero em dashes (R-02 compliant).</li>
+            <li><strong>Updated Credits:</strong> <strong>diabl0w</strong>, <strong>snothin</strong>, and <strong>hnedk</strong> credited on the main screen.</li>
+            <li><strong>Crisp Contrast:</strong> Maximum readability with pure white headings and high-contrast status cues.</li>
+        </ul>
+        <div style="margin-top: 18px; padding: 12px; background: #12141a; border-radius: 12px; border: 1px solid var(--border-default);">
+            Click <strong>ROOT</strong> on the phone mockup to test the flow.
+        </div>
+    </aside>
+
+    <script>
+        let selectedMode = 'ksu';
+        let isRooted = false;
+
+        function openBottomSheet() {
+            if (isRooted) {
+                if (confirm("Device already rooted. Re-jailbreak now?")) {
+                    isRooted = false;
+                    updateRootBadge(false);
+                } else {
+                    return;
+                }
+            }
+            document.getElementById('sheetOverlay').classList.add('open');
+            document.getElementById('bottomSheet').classList.add('open');
+        }
+
+        function closeBottomSheet() {
+            document.getElementById('sheetOverlay').classList.remove('open');
+            document.getElementById('bottomSheet').classList.remove('open');
+        }
+
+        function selectMode(mode) {
+            selectedMode = mode;
+            if (mode === 'ksu') {
+                document.getElementById('optKsu').classList.add('selected');
+                document.getElementById('optShell').classList.remove('selected');
+                document.getElementById('managerBox').style.display = 'flex';
+            } else {
+                document.getElementById('optShell').classList.add('selected');
+                document.getElementById('optKsu').classList.remove('selected');
+                document.getElementById('managerBox').style.display = 'none';
+            }
+        }
+
+        function handleKey(e, mode) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectMode(mode);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeBottomSheet();
+        });
+
+        function updateRootBadge(active) {
+            const badge = document.getElementById('statusBadge');
+            const btn = document.getElementById('btnRootText');
+            if (active) {
+                badge.classList.add('active');
+                badge.textContent = 'Root Active';
+                btn.textContent = 'RE-ROOT';
+            } else {
+                badge.classList.remove('active');
+                badge.textContent = 'Unrooted';
+                btn.textContent = 'ROOT';
+            }
+        }
+
+        function confirmJailbreak() {
+            closeBottomSheet();
+
+            const pBar = document.getElementById('progressBar');
+            const pStep = document.getElementById('stepIndicator');
+            const pDesc = document.getElementById('stepDesc');
+            const btn = document.getElementById('btnRoot');
+
+            btn.disabled = true;
+
+            const steps = [
+                { pct: '25%', step: '[1/4]', desc: 'Initializing IPsec socket encapsulation...' },
+                { pct: '50%', step: '[2/4]', desc: 'Triggering DirtyFrag heap race condition...' },
+                { pct: '75%', step: '[3/4]', desc: selectedMode === 'ksu' ? 'Injecting KernelSU LKM & bypassing Defex...' : 'Spawning root shell daemon on port 1337...' },
+                { pct: '90%', step: '[4/4]', desc: selectedMode === 'ksu' ? 'Synchronizing KernelSU manager permissions...' : 'Setting up Shizuku environment...' },
+                { pct: '100%', step: '[Done]', desc: selectedMode === 'ksu' ? 'Jailbreak Complete! Opening KernelSU...' : 'Shell Mode Ready! Connect on port 1337.' }
+            ];
+
+            let cur = 0;
+            const timer = setInterval(() => {
+                if (cur < steps.length) {
+                    pBar.style.width = steps[cur].pct;
+                    pStep.textContent = steps[cur].step;
+                    pDesc.textContent = steps[cur].desc;
+                    cur++;
+                } else {
+                    clearInterval(timer);
+                    btn.disabled = false;
+                    isRooted = true;
+                    updateRootBadge(true);
+                }
+            }, 600);
+        }
+    </script>
+</body>
+</html>

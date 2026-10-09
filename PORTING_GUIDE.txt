@@ -1,0 +1,165 @@
+================================================================================
+DFROOT + KERNELSU PORTING & INTEGRATION GUIDE
+Documentation for Samsung Galaxy A14 5G (SM-A146P) & New Device Bring-up
+Credits: diabl0w, snothin, hnedk
+================================================================================
+
+1. OVERVIEW & BACKGROUND
+--------------------------------------------------------------------------------
+DFROOT is an on-device jailbreak / temporary root solution based on the DirtyFrag 
+vulnerability (CVE-2024-XXXX, IPsec socket heap race condition). 
+
+The goal of this pipeline is to:
+  1. Trigger the DirtyFrag vulnerability to obtain arbitrary kernel read/write.
+  2. Install a resident kernel hook or load an in-memory LKM (Loadable Kernel Module) 
+     without unlocking the bootloader and without breaking AVB / tripping Knox.
+  3. Load KernelSU (LKM mode) into RAM to grant full Superuser & module capabilities.
+  4. Work seamlessly with KernelSU Manager (e.g., diabl0w's release).
+
+This document records the exact issues solved, kernel config overrides, supercall 
+UAPI alignment, and steps required when adding support for a new device.
+
+
+2. TARGET DEVICE DETAILS (SAMSUNG A14 5G)
+--------------------------------------------------------------------------------
+- Model: Samsung Galaxy A14 5G (SM-A146P / a14xm)
+- SoC: MediaTek Dimensity 700 / Dimensity 6020 (MT6833)
+- Android Version: Android 15 (One UI 7)
+- Kernel Release (uname -r): 6.6.50-android15-8-abA146PXXSFEYK3-4k
+- KMI: android15-6.6
+- Security Features: Samsung Knox, DEFEX, KDP, RKP, Shadow Call Stack (SCS), Clang CFI.
+
+
+3. KEY FINDINGS & CRITICAL FIXES APPLIED
+--------------------------------------------------------------------------------
+
+A. Kernel Config Overrides (Mandatory for Samsung Stock Kernels)
+   Stock Samsung 6.6 kernels enforce compiler-level CFI and Shadow Call Stack that 
+   cause instant kernel panics or reboot loops when loading generic LKMs:
+   - CONFIG_SHADOW_CALL_STACK=n:
+     Samsung disables or handles SCS differently; loading an LKM built with SCS=y 
+     causes memory corruption during function calls.
+   - CONFIG_CFI_CLANG=n:
+     Clang KCFI inserts `brk #0x822` traps if function pointer prototypes do not match 
+     100% with the in-kernel types. Must be stripped/disabled.
+   - CONFIG_KSU_SAMSUNG_DEFEX=y:
+     Enables bypass for Samsung DEFEX security daemon.
+   - CONFIG_KSU_SAMSUNG_KDP=y:
+     Handles Samsung Kernel Data Protection without crashing kernel credentials.
+   - CONFIG_KSU_RKP_NO_PATCH_TEXT=y:
+     Prevents writing to read-only code pages protected by Samsung RKP.
+
+B. KernelSU UAPI Version Alignment (The "Kernel update required" Fix)
+   - Issue:
+     The KernelSU Manager (diabl0w) displayed "Kernel update required. Tap to install",
+     and the bottom navigation bar (Superuser, Modules, Settings) was missing.
+   - Cause:
+     In KernelSU Manager:
+       isFullFeatured() = isManager && kernelUAPIVersion == managerUAPIVersion && rootAvailable()
+     The kernel module had `KERNEL_SU_UAPI_VERSION = 2` (pinned by snothin for older v3.3.0).
+     The diabl0w manager expected `KERNEL_SU_UAPI_VERSION = 5`.
+     Because 2 != 5, the Manager treated the kernel as outdated and hid the tabs.
+   - Fix:
+     In `KernelSU/uapi/supercall.h`:
+       Updated `static const __u32 KERNEL_SU_UAPI_VERSION = 5;`
+
+C. Manager Package Recognition & Throne Tracker
+   - Issue:
+     When using a manager with package name `me.weishu.kernelsu` that is signed with 
+     custom test keys, the kernel's throne tracker could reject it if APK signature 
+     checks fail.
+   - Fix:
+     In `KernelSU/kernel/manager/apk_sign.c`:
+       Bypassed strict signature verification specifically for package `me.weishu.kernelsu`
+       so custom/forked manager builds are immediately accepted as valid managers.
+
+D. Samsung DEFEX Execution Bypass
+   - Issue:
+     Samsung DEFEX kills processes launched from `/data/local/tmp` with SIGKILL.
+   - Fix:
+     In `DFROOT/app/src/main/jni/bootstrap.c`:
+       Bind-mounted the staged `ksud` binary over `/system/bin/atrace`:
+         mount("/data/local/tmp/.ksud-stage", "/system/bin/atrace", NULL, MS_BIND, NULL);
+       This allows `ksud` to execute with platform trust.
+
+E. Manager Launch Timing & Auto-Restart
+   - Issue:
+     Opening the KernelSU Manager too fast (< 1s after exploit) resulted in 
+     "Not installed" because the kernel's `throne_tracker` takes 1.5 - 3 seconds 
+     to scan `/data/app` and crown the manager.
+   - Fix:
+     Added logic in `bootstrap.c` and `MainActivity.java`:
+       1. Force-stop running manager: `am force-stop me.weishu.kernelsu`
+       2. Wait 3.5 seconds for kernel throne tracker to finish crowning.
+       3. Launch manager: `am start -n me.weishu.kernelsu/.ui.MainActivity`
+
+
+4. REPOSITORY STRUCTURE & CI PIPELINE
+--------------------------------------------------------------------------------
+Two repositories work in tandem:
+
+1. KernelSU Repository:
+   URL: https://github.com/HnedK/KernelSU.git
+   Branch: samsung
+   Workflow: .github/workflows/build-samsung-a14.yml
+   Outputs:
+     - kernelsu.ko (KMI android15-6.6, stripped, SCS=n, CFI=n, custom UTS_RELEASE)
+     - ksud-a14xm (Standalone aarch64 binary with embedded kernelsu.ko)
+
+2. DFRoot Repository:
+   URL: https://github.com/HnedK/DFRoot.git
+   Branch: master
+   Bundled Asset: app/src/main/assets/ksud-a14xm
+   Workflow: .github/workflows/build.yml
+   Outputs:
+     - DFRoot_4.0.apk (Signed APK containing native exploit & bundled ksud)
+
+
+5. STEP-BY-STEP GUIDE TO ADD A NEW DEVICE
+--------------------------------------------------------------------------------
+When porting DFROOT + KernelSU to another device model (e.g. Galaxy A54, S23, A15):
+
+Step 1: Inspect Target Device Kernel
+  Connect target device via ADB and run:
+    uname -r
+  Example output: `5.15.123-android14-9-abA546BXXU5...`
+  Identify:
+    - KMI Version (e.g., android14-5.15, android15-6.6, android14-6.1)
+    - Exact UTS_RELEASE string (matches `uname -r`)
+
+Step 2: Check Kernel Module Build Config
+  Ensure the matching DDK container exists in `ghcr.io/ylarod/ddk-min:<kmi>-<release>`.
+  In GitHub Actions (`build-samsung-a14.yml` or a new device workflow):
+    - Set `kmi` to target KMI.
+    - Set `custom_uts` to exact `uname -r` string.
+    - Ensure `disable_scs=true` and `disable_cfi=true` if it is a Samsung device.
+    - Set `source_branch=samsung` (or your adapted branch).
+
+Step 3: Verify UAPI Version
+  Check what KernelSU Manager APK you intend to use:
+    - Check the Manager's expected UAPI version (usually 5 on latest main/v1.0.x).
+    - In `uapi/supercall.h`, confirm `KERNEL_SU_UAPI_VERSION` matches the Manager.
+
+Step 4: Compile & Extract ksud
+  Run GitHub Actions build on KernelSU repo.
+  Download artifact `ksud-<device>`.
+  Copy/rename it to `DFROOT/app/src/main/assets/ksud-<device>` (or `ksud`).
+
+Step 5: Update Staging in ExploitRunner.java
+  In `DFROOT/app/src/main/java/com/hnedk/dfroot/ExploitRunner.java`:
+  Ensure the asset list detects the new binary:
+    if ("ksud-newdevice".equals(a) || "ksud-a14xm".equals(a) || "ksud".equals(a)) ...
+
+Step 6: Push & Compile DFRoot APK
+  Commit changes to DFRoot repository and push to GitHub.
+  The GitHub Actions workflow will produce the updated `DFRoot_4.0.apk`.
+
+Step 7: Device Testing Checklist
+  [ ] Clean old cached binaries:
+      rm -f /data/local/tmp/ksud /data/user_de/0/com.hnedk.dfroot/ksud
+  [ ] Install DFRoot APK.
+  [ ] Reboot device.
+  [ ] Run DFRoot exploit.
+  [ ] Verify KernelSU Manager auto-opens and displays "Working [Jailbreak mode]".
+  [ ] Verify Termux / shell executes `su` without errors.
+================================================================================

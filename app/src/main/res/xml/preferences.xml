@@ -9,7 +9,7 @@
     <ListPreference
         android:key="boot_mode"
         android:title="Boot Mode"
-        android:summary="Pilih mode eksekusi saat boot (KernelSU atau Shell)"
+        android:summary="Select execution mode on boot (KernelSU or Shell)"
         android:entries="@array/boot_mode_entries"
         android:entryValues="@array/boot_mode_values"
         android:defaultValue="ksu" />
@@ -17,19 +17,19 @@
     <SwitchPreference
         android:key="soft_reboot"
         android:title="Auto Soft Reboot"
-        android:summary="Applies to both Manual Start and Start at Boot.\nNOTE: this will only work if your SU manager supports it as a late-load arg"
+        android:summary="Applies to both manual start and start at boot"
         android:defaultValue="false" />
 
     <SwitchPreference
         android:key="disable_modules"
         android:title="Disable KSU Modules"
-        android:summary="Turn this on if a broken module is crashing your device. The next run will launch with all modules disabled."
+        android:summary="Launch with all modules disabled if a module causes boot loops"
         android:defaultValue="false" />
 
     <SwitchPreference
         android:key="auto_start_shizuku"
         android:title="Auto Start Shizuku"
-        android:summary="Otomatis jalankan service Shizuku saat root berhasil aktif"
+        android:summary="Automatically start Shizuku service once root is active"
         android:defaultValue="true" />
 
 </PreferenceScreen>
