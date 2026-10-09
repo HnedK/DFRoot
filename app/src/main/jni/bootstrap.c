@@ -529,10 +529,30 @@ int main(int argc, char **argv)
     }
     late_load[k_idx] = NULL;
 
-    if (run_ksud(late_load) == 0)
+    if (run_ksud(late_load) == 0) {
         touch("/dev/dfm6");
-    else
+        /* Automatically force-stop and reopen the SU manager so it attaches cleanly to the freshly crowned kernel */
+        const char *target_pkg = (su_manager[0] != '\0') ? su_manager : "me.weishu.kernelsu";
+        char cmd_stop[128];
+        char cmd_start[256];
+        snprintf(cmd_stop, sizeof(cmd_stop), "/system/bin/am force-stop %s", target_pkg);
+        snprintf(cmd_start, sizeof(cmd_start), "/system/bin/am start -n %s/.ui.MainActivity", target_pkg);
+
+        pid_t rpid = fork();
+        if (rpid == 0) {
+            setsid();
+            /* Brief sleep to allow kernel supercall interface to settle */
+            usleep(500000); /* 500ms */
+            char *const sh_stop[] = { "/system/bin/sh", "-c", cmd_stop, NULL };
+            run(sh_stop);
+            usleep(300000); /* 300ms */
+            char *const sh_start[] = { "/system/bin/sh", "-c", cmd_start, NULL };
+            run(sh_start);
+            _exit(0);
+        }
+    } else {
         touch("/dev/dfme2");
+    }
 
     return 0;
 }

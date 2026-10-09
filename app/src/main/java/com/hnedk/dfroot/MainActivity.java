@@ -294,6 +294,17 @@ public class MainActivity extends Activity implements IReporter {
                     }
                 } catch (Exception ignored) {}
             }
+            if (rc == 0 && ExploitRunner.RUN_MODE_KSU.equals(mode)) {
+                mMain.postDelayed(() -> {
+                    try {
+                        Intent launchIntent = getPackageManager().getLaunchIntentForPackage("me.weishu.kernelsu");
+                        if (launchIntent != null) {
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                            startActivity(launchIntent);
+                        }
+                    } catch (Exception ignored) {}
+                }, 800);
+            }
 
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
         } catch (Exception e) {
