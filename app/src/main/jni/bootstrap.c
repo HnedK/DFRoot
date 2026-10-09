@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/mount.h>
+#include <sys/utsname.h>
 
 #define BLKROSET   0x125d
 #define KSUD       "/data/user_de/0/com.hnedk.dfroot/ksud"
@@ -28,6 +29,20 @@ static int pref_true(const char *buf, const char *key)
     return v && tag_end && v < tag_end;
 }
 
+static int pref_bool_default(const char *buf, const char *key, int def)
+{
+    char needle[64];
+    snprintf(needle, sizeof(needle), "name=\"%s\"", key);
+    char *p = strstr(buf, needle);
+    if (!p) return def;
+    char *tag_end = strchr(p, '>');
+    if (strstr(p, "value=\"false\"") && tag_end && strstr(p, "value=\"false\"") < tag_end)
+        return 0;
+    if (strstr(p, "value=\"true\"") && tag_end && strstr(p, "value=\"true\"") < tag_end)
+        return 1;
+    return def;
+}
+
 /**
  * Read all relevant prefs from dfroot.xml.
  *
@@ -39,6 +54,7 @@ static int pref_true(const char *buf, const char *key)
  */
 static int read_prefs(char *su_manager, size_t su_manager_size,
                       int *soft_reboot, int *disable_modules,
+                      int *auto_shizuku,
                       char *run_mode, size_t run_mode_size)
 {
     int fd = open(PREFS_PATH, O_RDONLY);
@@ -64,8 +80,9 @@ static int read_prefs(char *su_manager, size_t su_manager_size,
         su_manager[0] = '\0';
     }
 
-    *soft_reboot    = pref_true(buf, "soft_reboot");
+    *soft_reboot     = pref_true(buf, "soft_reboot");
     *disable_modules = pref_true(buf, "disable_modules");
+    *auto_shizuku    = pref_bool_default(buf, "auto_start_shizuku", 1);
 
     /* run_mode (string value, default "ksu") */
     strncpy(run_mode, "ksu", run_mode_size - 1);
@@ -268,7 +285,7 @@ static void run_root_shell_daemon(void)
     }
 }
 
-static int launch_shell_mode(void)
+static void setup_root_environment(int auto_shizuku, int is_shell_mode)
 {
     /* Try adbd root restart in case device allows it */
     char *argv_root[]    = { "/system/bin/setprop", "service.adb.root",  "1",    NULL };
@@ -294,21 +311,39 @@ static int launch_shell_mode(void)
     mount("/data/local/tmp/su", "/bin/su", NULL, MS_BIND, NULL);
     mount("/data/local/tmp/su", "/apex/com.android.runtime/bin/su", NULL, MS_BIND, NULL);
 
-    /* Auto-start Shizuku if shizuku_starter exists in /data/local/tmp */
-    /* Run as user 'shell' (UID 2000) so Samsung Defex does not SIGKILL (137) it */
-    if (access("/data/local/tmp/shizuku_starter", F_OK) == 0) {
-        pid_t sp = fork();
-        if (sp == 0) {
-            setgid(2000); /* gid: shell */
-            setuid(2000); /* uid: shell */
-            char *const argv_shizuku[] = { "/system/bin/sh", "/data/local/tmp/shizuku_starter", NULL };
-            execv("/system/bin/sh", argv_shizuku);
-            _exit(127);
+    /* Auto-start Shizuku if enabled */
+    if (auto_shizuku) {
+        const char *shizuku_candidates[] = {
+            "/data/local/tmp/shizuku_starter",
+            "/sdcard/Android/data/moe.shizuku.privileged.api/start.sh",
+            "/sdcard/Android/data/moe.shizuku.privileged.api/files/start.sh",
+            "/data/user_de/0/moe.shizuku.privileged.api/files/start.sh",
+            "/data/data/moe.shizuku.privileged.api/files/start.sh",
+            NULL
+        };
+        const char *found_shizuku = NULL;
+        for (int i = 0; shizuku_candidates[i]; i++) {
+            if (access(shizuku_candidates[i], F_OK) == 0) {
+                found_shizuku = shizuku_candidates[i];
+                break;
+            }
         }
-        waitpid(sp, NULL, 0);
+        if (found_shizuku) {
+            pid_t sp = fork();
+            if (sp == 0) {
+                setgid(2000); /* gid: shell */
+                setuid(2000); /* uid: shell */
+                char *const argv_shizuku[] = { "/system/bin/sh", (char *)found_shizuku, NULL };
+                execv("/system/bin/sh", argv_shizuku);
+                _exit(127);
+            }
+            waitpid(sp, NULL, 0);
+        }
     }
 
-    touch("/dev/dfm6_shell");
+    if (is_shell_mode) {
+        touch("/dev/dfm6_shell");
+    }
 
     /* Fork background root daemon */
     pid_t pid = fork();
@@ -318,7 +353,11 @@ static int launch_shell_mode(void)
         run_root_shell_daemon();
         _exit(0);
     }
+}
 
+static int launch_shell_mode(int auto_shizuku)
+{
+    setup_root_environment(auto_shizuku, 1);
     return 0;
 }
 
@@ -327,9 +366,9 @@ int main(void)
     touch("/dev/dfm1");
     char su_manager[256];
     char run_mode[32];
-    int soft_reboot, disable_mods;
+    int soft_reboot, disable_mods, auto_shizuku;
     if (read_prefs(su_manager, sizeof(su_manager),
-                   &soft_reboot, &disable_mods,
+                   &soft_reboot, &disable_mods, &auto_shizuku,
                    run_mode, sizeof(run_mode)) != 0) {
         touch("/dev/dfme0");
         return 1;
@@ -346,10 +385,13 @@ int main(void)
     /* ── Shell mode ────────────────────────────────────────────────────── */
     if (!strcmp(run_mode, "shell")) {
         touch("/dev/dfm5");
-        return launch_shell_mode();
+        return launch_shell_mode(auto_shizuku);
     }
 
     /* ── KernelSU mode (default) ───────────────────────────────────────── */
+    /* Ensure root daemon, in-app terminal, and su wrapper are always active */
+    setup_root_environment(auto_shizuku, 0);
+
     if (disable_mods) {
         touch("/dev/dfm4");
         if (disable_modules()) {
@@ -359,11 +401,33 @@ int main(void)
     }
 
     touch("/dev/dfm5");
-    char **late_load;
-    if (soft_reboot)
-        late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, "--soft-reboot", NULL };
-    else
-        late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, NULL };
+
+    /* Auto-detect KMI from kernel release so ksud does not need to parse boot partition */
+    struct utsname u;
+    char kmi[64] = "android15-6.6";
+    if (uname(&u) == 0) {
+        if (strstr(u.release, "6.6")) strcpy(kmi, "android15-6.6");
+        else if (strstr(u.release, "6.1")) strcpy(kmi, "android14-6.1");
+        else if (strstr(u.release, "5.15")) strcpy(kmi, "android14-5.15");
+        else if (strstr(u.release, "5.10")) strcpy(kmi, "android12-5.10");
+    }
+
+    char *late_load[16];
+    int k_idx = 0;
+    late_load[k_idx++] = (char *)KSUD;
+    late_load[k_idx++] = "late-load";
+    late_load[k_idx++] = "--kmi";
+    late_load[k_idx++] = kmi;
+    late_load[k_idx++] = "--allow-shell";
+    if (su_manager[0] != '\0') {
+        late_load[k_idx++] = "--package-name";
+        late_load[k_idx++] = su_manager;
+    }
+    if (soft_reboot) {
+        late_load[k_idx++] = "--soft-reboot";
+    }
+    late_load[k_idx] = NULL;
+
     if (run_ksud(late_load) == 0)
         touch("/dev/dfm6");
     else

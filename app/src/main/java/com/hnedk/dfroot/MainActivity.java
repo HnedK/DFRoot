@@ -204,7 +204,10 @@ public class MainActivity extends Activity implements IReporter {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_terminal) {
+            startActivity(new Intent(this, TerminalActivity.class));
+            return true;
+        } else if (id == R.id.action_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
             return true;
         } else if (id == R.id.action_copy_log) {
@@ -242,8 +245,13 @@ public class MainActivity extends Activity implements IReporter {
         }
 
         boolean isHooked = new File("/dev/df").exists();
+        boolean isRooted = isHooked
+                || new File("/dev/dfm6_shell").exists()
+                || new File("/dev/dfm6").exists()
+                || new File("/data/local/tmp/su").exists();
+
         if (tvRootBadge != null) {
-            if (isHooked) {
+            if (isRooted) {
                 tvRootBadge.setText("● Root Active");
                 tvRootBadge.setTextColor(0xFF81C784); // Hijau
             } else {
@@ -254,6 +262,13 @@ public class MainActivity extends Activity implements IReporter {
 
         if (tvSelinuxStatus != null) {
             tvSelinuxStatus.setText(isHooked ? "SELinux: Permissive" : "SELinux: Enforcing");
+        }
+
+        if (isRooted && layoutTerminal != null) {
+            layoutTerminal.setVisibility(View.VISIBLE);
+            if (mTerminalSocket == null || mTerminalSocket.isClosed()) {
+                connectTerminalSession();
+            }
         }
     }
 
@@ -292,6 +307,9 @@ public class MainActivity extends Activity implements IReporter {
                     : rc == 1 ? "KernelSU: Error — ksud nonzero exit"
                     : rc == 2 ? "KernelSU: Error — check logcat & dmesg"
                               : "KernelSU: Error — failed to patch files";
+                if (rc == 0) {
+                    mMain.post(this::connectTerminalSession);
+                }
             }
 
             File ksudLog = new File("/data/local/tmp/ksud.log");
@@ -317,7 +335,12 @@ public class MainActivity extends Activity implements IReporter {
     }
 
     private void connectTerminalSession() {
-        layoutTerminal.setVisibility(View.VISIBLE);
+        if (layoutTerminal != null) {
+            layoutTerminal.setVisibility(View.VISIBLE);
+        }
+        if (mTerminalSocket != null && !mTerminalSocket.isClosed()) {
+            return;
+        }
         report("\n[Terminal In-App Root Aktif. Ketik perintah di bawah]\n");
         new Thread(() -> {
             try {
@@ -335,6 +358,12 @@ public class MainActivity extends Activity implements IReporter {
                 }
             } catch (Exception e) {
                 report("\n[Terminal session ended: " + e.getMessage() + "]\n");
+            } finally {
+                try {
+                    if (mTerminalSocket != null) mTerminalSocket.close();
+                } catch (Exception ignored) {}
+                mTerminalSocket = null;
+                mTerminalOut = null;
             }
         }, "Terminal-Reader").start();
     }

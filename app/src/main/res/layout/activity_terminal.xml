@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/terminalRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0A0A0C"
+    android:padding="12dp"
+    android:fitsSystemWindows="true">
+
+    <!-- Header / Status Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvTermTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Root Terminal"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tvStatusBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● Connecting..."
+            android:textSize="12sp"
+            android:textColor="#FFB74D"
+            android:layout_marginEnd="12dp" />
+
+        <Button
+            android:id="@+id/btnReconnect"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Reconnect"
+            android:textSize="11sp"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/btnClear"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Clear"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+
+    <!-- Terminal Output Box -->
+    <ScrollView
+        android:id="@+id/termScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_terminal_box"
+        android:padding="12dp"
+        android:fillViewport="true">
+
+        <TextView
+            android:id="@+id/termOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:textColor="#80E5A3"
+            android:textIsSelectable="true" />
+
+    </ScrollView>
+
+    <!-- Quick Command Chips / Buttons -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/chipId"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="id"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipWhoami"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="whoami"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipUname"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="uname -a"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipShizuku"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Start Shizuku"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipLs"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="ls -la /data"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipDmesg"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="dmesg | tail"
+                android:textSize="11sp"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/chipPs"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="ps -ef | grep ksu"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Input Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/bg_input_box"
+        android:paddingStart="12dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="# "
+            android:textStyle="bold"
+            android:textColor="#81C784"
+            android:fontFamily="monospace"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/termInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Ketik perintah root..."
+            android:fontFamily="monospace"
+            android:textSize="13sp"
+            android:background="@null"
+            android:imeOptions="actionSend"
+            android:inputType="text" />
+
+        <Button
+            android:id="@+id/btnSend"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:textSize="12sp"
+            android:text="Kirim" />
+
+    </LinearLayout>
+
+</LinearLayout>

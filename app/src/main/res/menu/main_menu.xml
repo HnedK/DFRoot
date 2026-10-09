@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/action_terminal"
+        android:icon="@drawable/ic_terminal"
+        android:title="Root Terminal"
+        android:showAsAction="always" />
+    <item
         android:id="@+id/action_copy_log"
         android:title="Copy Log"
         android:showAsAction="never" />

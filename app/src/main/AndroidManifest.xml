@@ -27,6 +27,13 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".TerminalActivity"
+            android:exported="false"
+            android:label="Root Terminal"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName=".MainActivity" />
+
         <receiver
             android:name=".BootReceiver"
             android:directBootAware="true"

@@ -26,4 +26,10 @@
         android:summary="Turn this on if a broken module is crashing your device. The next run will launch with all modules disabled."
         android:defaultValue="false" />
 
+    <SwitchPreference
+        android:key="auto_start_shizuku"
+        android:title="Auto Start Shizuku"
+        android:summary="Otomatis jalankan service Shizuku saat root berhasil aktif"
+        android:defaultValue="true" />
+
 </PreferenceScreen>
