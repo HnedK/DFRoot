@@ -531,35 +531,13 @@ int main(int argc, char **argv)
 
     if (run_ksud(late_load) == 0) {
         touch("/dev/dfm6");
-        /* Automatically force-stop and reopen the SU manager so it attaches cleanly to the freshly crowned kernel */
+        /* Force-stop running manager so it doesn't hold stale pre-root state.
+         * MainActivity will launch it freshly after crowning is complete. */
         const char *target_pkg = (su_manager[0] != '\0') ? su_manager : "me.weishu.kernelsu";
         char cmd_stop[128];
-        char cmd_start[256];
-        snprintf(cmd_stop, sizeof(cmd_stop), "/system/bin/am force-stop %s", target_pkg);
-        snprintf(cmd_start, sizeof(cmd_start), "/system/bin/am start -n %s/.ui.MainActivity", target_pkg);
-
-        pid_t rpid = fork();
-        if (rpid == 0) {
-            setsid();
-            /* 1. Force-stop running manager immediately so it doesn't hold stale state */
-            char *const sh_stop[] = { "/system/bin/sh", "-c", cmd_stop, NULL };
-            run(sh_stop);
-
-            /* 2. Wait up to 3 seconds for kernel throne tracker to finish scanning & crowning manager */
-            for (int i = 0; i < 30; i++) {
-                usleep(100000); /* 100ms */
-                if (access("/data/system/packages.list", F_OK) == 0) {
-                    /* Allow brief margin for kernel throne search */
-                }
-            }
-            /* Extra 1.5 seconds safety delay */
-            sleep(1);
-
-            /* 3. Launch manager afresh */
-            char *const sh_start[] = { "/system/bin/sh", "-c", cmd_start, NULL };
-            run(sh_start);
-            _exit(0);
-        }
+        snprintf(cmd_stop, sizeof(cmd_stop), "/system/bin/am force-stop %s 2>/dev/null", target_pkg);
+        char *const sh_stop[] = { "/system/bin/sh", "-c", cmd_stop, NULL };
+        run(sh_stop);
     } else {
         touch("/dev/dfme2");
     }

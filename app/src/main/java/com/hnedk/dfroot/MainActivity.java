@@ -261,15 +261,19 @@ public class MainActivity extends Activity implements IReporter {
             });
 
             if (rc == 0 && ExploitRunner.RUN_MODE_KSU.equals(mode)) {
+                // Allow kernel throne tracker to finish crowning the manager
+                // before launching it freshly so it opens with 'Working' status directly.
                 mMain.postDelayed(() -> {
                     try {
+                        // Double check process is stopped completely before launch
+                        RootExecutor.execute("am force-stop " + mDetectedSuManager + " 2>/dev/null");
                         Intent launchIntent = getPackageManager().getLaunchIntentForPackage(mDetectedSuManager);
                         if (launchIntent != null) {
-                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                             startActivity(launchIntent);
                         }
                     } catch (Exception ignored) {}
-                }, 3500);
+                }, 4000);
             }
 
             mMain.post(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
