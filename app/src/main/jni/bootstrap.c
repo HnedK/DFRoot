@@ -507,7 +507,8 @@ int main(int argc, char **argv)
     struct utsname u;
     char kmi[64] = "android15-6.6";
     if (uname(&u) == 0) {
-        if (strstr(u.release, "6.6")) strcpy(kmi, "android15-6.6");
+        if (strstr(u.release, "6.12")) strcpy(kmi, "android16-6.12");
+        else if (strstr(u.release, "6.6")) strcpy(kmi, "android15-6.6");
         else if (strstr(u.release, "6.1")) strcpy(kmi, "android14-6.1");
         else if (strstr(u.release, "5.15")) strcpy(kmi, "android14-5.15");
         else if (strstr(u.release, "5.10")) strcpy(kmi, "android12-5.10");
